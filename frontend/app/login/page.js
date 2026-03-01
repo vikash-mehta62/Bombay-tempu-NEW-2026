@@ -15,6 +15,12 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!credentials.username || !credentials.password) {
+      toast.error('Please enter both username and password');
+      return;
+    }
+    
     setLoading(true);
 
     try {
@@ -25,7 +31,7 @@ export default function LoginPage() {
         toast.error(result.message || 'Login failed');
       }
     } catch (error) {
-      toast.error('An error occurred');
+      toast.error('An error occurred during login');
     } finally {
       setLoading(false);
     }
@@ -127,13 +133,13 @@ export default function LoginPage() {
           {/* Demo Credentials */}
           <div className="mt-6 p-4 bg-blue-50 rounded-lg">
             <p className="text-sm text-blue-800 font-medium mb-2">
-              Demo Credentials:
+              Login Credentials:
             </p>
             <p className="text-sm text-blue-700">
-              Username: <span className="font-mono font-semibold">admin</span>
+              Username: <span className="font-mono font-semibold">mohit</span>
             </p>
             <p className="text-sm text-blue-700">
-              Password: <span className="font-mono font-semibold">admin123</span>
+              Password: <span className="font-mono font-semibold">33550011</span>
             </p>
           </div>
         </div>

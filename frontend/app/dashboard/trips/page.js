@@ -266,7 +266,11 @@ export default function TripsPage() {
                           {trip.tripNumber}
                         </div>
                         <div className="text-xs text-gray-500">
-                          {trip.clients?.length || 0} Client(s)
+                          {trip.clients?.map((client, index) => (
+                            <div key={index}>
+                              {client.clientId?.fullName || client.clientId?.companyName || 'N/A'}
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </td>

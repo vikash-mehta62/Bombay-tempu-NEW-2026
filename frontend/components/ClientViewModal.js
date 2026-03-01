@@ -23,6 +23,7 @@ import { tripAPI, clientPaymentAPI, clientAPI, adjustmentPaymentAPI } from '@/li
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { generateClientReceipt, generateClientBalanceStatement, generateClientAdjustmentStatement } from '@/utils/receiptGenerator';
 
 // Client Payment Statement Tab Component
 function ClientPaymentStatementTab({ client, formatCurrency }) {
@@ -163,14 +164,49 @@ function ClientPaymentStatementTab({ client, formatCurrency }) {
 
   const getStatusBadge = (status) => {
     const badges = {
-      'trip_started': { color: 'bg-blue-100 text-blue-800', label: 'Started' },
-      'trip_completed': { color: 'bg-green-100 text-green-800', label: 'Completed' },
+      'pod_pending': { color: 'bg-orange-100 text-orange-800', label: 'Pending' },
       'pod_received': { color: 'bg-purple-100 text-purple-800', label: 'POD Received' },
-      'pod_submitted': { color: 'bg-orange-100 text-orange-800', label: 'POD Submitted' },
-      'settled': { color: 'bg-gray-100 text-gray-800', label: 'Settled' },
+      'pod_submitted': { color: 'bg-yellow-100 text-yellow-800', label: 'POD Submitted' },
+      'settled': { color: 'bg-green-100 text-green-800', label: 'Settled' },
       'completed': { color: 'bg-green-100 text-green-800', label: 'Completed' }
     };
     return badges[status] || { color: 'bg-gray-100 text-gray-800', label: status };
+  };
+
+  const downloadTripReceipt = async (trip, client) => {
+    try {
+      // Fetch trip details to get full information
+      const tripResponse = await tripAPI.getById(trip.tripId);
+      const tripData = tripResponse.data.data;
+      
+      // Fetch client payments for this trip and client
+      let clientPayments = [];
+      try {
+        const paymentsResponse = await clientPaymentAPI.getByTripAndClient(trip.tripId, client._id);
+        clientPayments = paymentsResponse.data.data || [];
+      } catch (error) {
+        console.log('No payments found for this trip');
+      }
+      
+      // Prepare trip data for receipt
+      const receiptTripData = {
+        ...trip,
+        tripNumber: trip.tripNumber,
+        loadDate: trip.loadDate,
+        vehicleNumber: tripData.vehicleId?.vehicleNumber,
+        vehicleId: tripData.vehicleId,
+        originCity: tripData.clients[0]?.originCity,
+        destinationCity: tripData.clients[0]?.destinationCity,
+        packagingType: tripData.clients[0]?.packagingType
+      };
+      
+      // Generate receipt using reusable function
+      await generateClientReceipt(receiptTripData, client, clientPayments, formatCurrency);
+      
+    } catch (error) {
+      console.error('Error generating receipt:', error);
+      toast.error('Failed to generate receipt');
+    }
   };
 
   const exportToCSV = () => {
@@ -379,6 +415,15 @@ function ClientPaymentStatementTab({ client, formatCurrency }) {
             <p className="text-sm text-gray-600">Complete transaction history • {filteredTransactions.length} entries • Generated on {new Date().toLocaleDateString('en-IN')}</p>
           </div>
           <div className="flex space-x-2">
+            <button
+              onClick={async () => {
+                await generateClientBalanceStatement(client, trips, filteredTransactions, formatCurrency);
+              }}
+              className="btn bg-green-600 text-white hover:bg-green-700 flex items-center space-x-2 text-sm"
+            >
+              <Download className="w-4 h-4" />
+              <span>Client Balance</span>
+            </button>
             <button
               onClick={exportToCSV}
               className="btn bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 flex items-center space-x-2 text-sm"
@@ -625,6 +670,17 @@ function ClientPaymentStatementTab({ client, formatCurrency }) {
                       </p>
                     </div>
                   )}
+                  
+                  {/* Download Receipt Button */}
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      onClick={() => downloadTripReceipt(trip, client)}
+                      className="btn btn-sm bg-blue-600 text-white hover:bg-blue-700 flex items-center space-x-2"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Download Receipt</span>
+                    </button>
+                  </div>
                 </div>
               );
             })
@@ -826,6 +882,41 @@ function ClientAdjustmentTab({ client, formatCurrency }) {
           <p className="text-2xl font-bold text-red-900">{formatCurrency(stats.totalPending)}</p>
           <p className="text-xs text-red-600 mt-1">Yet to be paid</p>
         </div>
+      </div>
+
+      {/* Download Button */}
+      <div className="mb-4 flex justify-end">
+        <button
+          onClick={async () => {
+            // Prepare adjustment trips data with vehicle info
+            const adjustmentTripsData = adjustmentTrips.map(trip => {
+              const clientData = trip.clients.find(c => c.clientId?._id === client._id);
+              return {
+                tripNumber: trip.tripNumber,
+                loadDate: trip.loadDate,
+                vehicleNumber: trip.vehicleId?.vehicleNumber,
+                vehicleId: trip.vehicleId,
+                adjustment: Math.abs(clientData.adjustment || 0)
+              };
+            });
+            
+            await generateClientAdjustmentStatement(
+              client,
+              adjustmentTripsData,
+              {
+                totalTrips: stats.tripsCount,
+                totalAdjustment: stats.totalAdjustment,
+                totalPaid: stats.totalPaid,
+                totalPending: stats.totalPending
+              },
+              formatCurrency
+            );
+          }}
+          className="btn bg-blue-600 text-white hover:bg-blue-700 flex items-center space-x-2"
+        >
+          <Download className="w-4 h-4" />
+          <span>Download Adjustment Statement</span>
+        </button>
       </div>
 
       {/* Trips with Adjustments */}

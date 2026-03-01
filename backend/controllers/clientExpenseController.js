@@ -8,6 +8,25 @@ const createExpense = async (req, res) => {
   try {
     const { tripId, clientId, amount, paidBy, expenseType, description, paymentDate } = req.body;
 
+    // Check for duplicate entry within last 15 minutes
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+    const duplicateCheck = await ClientExpense.findOne({
+      tripId,
+      clientId,
+      amount,
+      expenseType,
+      createdBy: req.user._id,
+      isActive: true,
+      createdAt: { $gte: fifteenMinutesAgo }
+    });
+
+    if (duplicateCheck) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Duplicate entry detected. Same client expense was added within last 15 minutes.' 
+      });
+    }
+
     // Verify trip exists
     const trip = await Trip.findById(tripId);
     if (!trip) {

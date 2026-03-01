@@ -216,7 +216,9 @@ exports.getClientStatement = async (req, res) => {
     const trips = await Trip.find({
       'clients.clientId': clientId,
       isActive: true
-    }).sort({ loadDate: -1 });
+    })
+    .populate('vehicleId', 'vehicleNumber')
+    .sort({ loadDate: -1 });
     
     // Prepare statement entries
     const statementEntries = [];
@@ -293,7 +295,7 @@ exports.getClientStatement = async (req, res) => {
       
       const totalRate = clientData.clientRate || 0;
       const adjustment = clientData.adjustment || 0;
-      const finalTotal = totalRate - adjustment;
+      const finalTotal = totalRate;
       
       // Get payments
       const payments = await ClientPayment.find({
@@ -330,6 +332,8 @@ exports.getClientStatement = async (req, res) => {
         tripNumber: trip.tripNumber,
         tripStatus: trip.status,
         loadDate: trip.loadDate,
+        vehicleNumber: trip.vehicleId?.vehicleNumber || 'N/A',
+        vehicleId: trip.vehicleId,
         from: trip.from,
         to: trip.to,
         clientRate: totalRate,
@@ -372,6 +376,7 @@ exports.getClientStatement = async (req, res) => {
           contact: client.contact,
           email: client.email
         },
+        trips: validTripSummaries,
         totalBalance: overallBalance,
         statement: {
           totalDebit,

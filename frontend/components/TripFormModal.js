@@ -58,8 +58,90 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
   useEffect(() => {
     if (isOpen) {
       loadData();
+      
+      // Load edit data if provided
+      if (editData) {
+        setFormData({
+          vehicleId: editData.vehicleId?._id || '',
+          driverId: editData.driverId?._id || '',
+          tripDateTime: editData.tripDateTime ? new Date(editData.tripDateTime).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16),
+          loadDate: editData.loadDate ? new Date(editData.loadDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          clients: editData.clients?.map(client => ({
+            clientId: client.clientId?._id || '',
+            originCity: client.originCity?._id || '',
+            destinationCity: client.destinationCity?._id || '',
+            loadDate: client.loadDate ? new Date(client.loadDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+            clientRate: client.clientRate || '',
+            truckHireCost: client.truckHireCost || '',
+            adjustment: client.adjustment || '',
+            packagingType: client.packagingType || 'boxes',
+            specialInstructions: client.specialInstructions || ''
+          })) || [{
+            clientId: '',
+            originCity: '',
+            destinationCity: '',
+            loadDate: new Date().toISOString().split('T')[0],
+            clientRate: '',
+            truckHireCost: '',
+            adjustment: '',
+            packagingType: 'boxes',
+            specialInstructions: ''
+          }],
+          overallTripRate: editData.overallTripRate || '',
+          commissionType: editData.commissionType || 'none',
+          commissionAmount: editData.commissionAmount || '',
+          podBalance: editData.podBalance || '',
+          additionalInstructions: editData.additionalInstructions || ''
+        });
+        
+        // Set selected vehicle
+        if (editData.vehicleId) {
+          setSelectedVehicle(editData.vehicleId);
+        }
+        
+        // Initialize search arrays for clients
+        if (editData.clients) {
+          setClientSearch(new Array(editData.clients.length).fill(''));
+          setOriginSearch(new Array(editData.clients.length).fill(''));
+          setDestinationSearch(new Array(editData.clients.length).fill(''));
+          setShowAddClient(new Array(editData.clients.length).fill(false));
+          setShowAddOrigin(new Array(editData.clients.length).fill(false));
+          setShowAddDestination(new Array(editData.clients.length).fill(false));
+        }
+      } else {
+        // Reset form for new trip
+        setFormData({
+          vehicleId: '',
+          driverId: '',
+          tripDateTime: new Date().toISOString().slice(0, 16),
+          loadDate: new Date().toISOString().split('T')[0],
+          clients: [{
+            clientId: '',
+            originCity: '',
+            destinationCity: '',
+            loadDate: new Date().toISOString().split('T')[0],
+            clientRate: '',
+            truckHireCost: '',
+            adjustment: '',
+            packagingType: 'boxes',
+            specialInstructions: ''
+          }],
+          overallTripRate: '',
+          commissionType: 'none',
+          commissionAmount: '',
+          podBalance: '',
+          additionalInstructions: ''
+        });
+        setSelectedVehicle(null);
+        setClientSearch(['']);
+        setOriginSearch(['']);
+        setDestinationSearch(['']);
+        setShowAddClient([false]);
+        setShowAddOrigin([false]);
+        setShowAddDestination([false]);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, editData]);
 
   const loadData = async () => {
     try {
@@ -160,6 +242,7 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
     const totalRevenue = formData.clients.reduce((sum, client) => 
       sum + (parseFloat(client.clientRate) || 0), 0);
     
+    // Adjustments are NOT included in profit calculation anymore
     const totalAdjustments = formData.clients.reduce((sum, client) => 
       sum + (parseFloat(client.adjustment) || 0), 0);
     
@@ -182,17 +265,17 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
         commissionEffect = -commissionAmount; // SUBTRACT from profit
       }
       
-      // Fleet-Owned: Profit = Revenue - Hire Cost - Adjustments + Commission + POD
+      // Fleet-Owned: Profit = Revenue - Hire Cost + Commission + POD (NO ADJUSTMENT)
       totalCosts = formData.clients.reduce((sum, client) => 
         sum + (parseFloat(client.truckHireCost) || 0), 0);
-      profitLoss = totalRevenue - totalCosts - totalAdjustments + commissionEffect + podBalance;
+      profitLoss = totalRevenue - totalCosts + commissionEffect + podBalance;
     } else {
-      // Self-Owned: Profit = Revenue - Adjustments
+      // Self-Owned: Profit = Revenue (NO ADJUSTMENT)
       // No commission, no POD, no hire cost for own vehicle
       totalCosts = 0;
       commissionEffect = 0;
       podBalance = 0;
-      profitLoss = totalRevenue - totalAdjustments;
+      profitLoss = totalRevenue;
     }
     
     return {
@@ -757,7 +840,8 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
               const clientRevenue = parseFloat(client.clientRate) || 0;
               const hireCost = parseFloat(client.truckHireCost) || 0;
               const adjustment = parseFloat(client.adjustment) || 0;
-              const clientProfit = clientRevenue - hireCost - adjustment;
+              // Adjustment is NOT included in profit calculation
+              const clientProfit = clientRevenue - hireCost;
               
               return (
                 <div key={index} className="text-sm text-gray-600 mb-1">
@@ -782,10 +866,10 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
             
             <div className="bg-red-50 p-4 rounded-lg border border-red-200">
               <p className="text-xs text-red-600 mb-1">
-                {calculations.isFleetOwned ? 'Hire Cost + Adjustments' : 'Adjustments Only'}
+                {calculations.isFleetOwned ? 'Hire Cost' : 'No Costs'}
               </p>
               <p className="text-2xl font-bold text-red-700">
-                ₹{(calculations.totalCosts + calculations.totalAdjustments).toLocaleString('en-IN')}
+                ₹{calculations.totalCosts.toLocaleString('en-IN')}
               </p>
             </div>
             
@@ -810,7 +894,6 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
                 <>
                   Profit = Client Revenue (₹{calculations.totalRevenue.toLocaleString('en-IN')}) 
                   - Fleet Hire Cost (₹{calculations.totalCosts.toLocaleString('en-IN')})
-                  - Adjustments (₹{calculations.totalAdjustments.toLocaleString('en-IN')})
                   {calculations.commissionEffect !== 0 && (
                     calculations.commissionEffect > 0 
                       ? ` + Commission Received (₹${Math.abs(calculations.commissionEffect).toLocaleString('en-IN')})`
@@ -818,12 +901,15 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
                   )}
                   {calculations.podBalance !== 0 && ` + POD Balance (₹${calculations.podBalance.toLocaleString('en-IN')})`}
                   {` = ${calculations.profitLoss >= 0 ? 'Profit' : 'Loss'} ₹${Math.abs(calculations.profitLoss).toLocaleString('en-IN')}`}
+                  <br/>
+                  <span className="text-xs text-gray-600">Note: Adjustments (₹{calculations.totalAdjustments.toLocaleString('en-IN')}) are tracked separately and not included in profit calculation</span>
                 </>
               ) : (
                 <>
-                  Profit = Client Revenue (₹{calculations.totalRevenue.toLocaleString('en-IN')}) 
-                  - Adjustments (₹{calculations.totalAdjustments.toLocaleString('en-IN')})
+                  Profit = Client Revenue (₹{calculations.totalRevenue.toLocaleString('en-IN')})
                   {` = ${calculations.profitLoss >= 0 ? 'Profit' : 'Loss'} ₹${Math.abs(calculations.profitLoss).toLocaleString('en-IN')}`}
+                  <br/>
+                  <span className="text-xs text-gray-600">Note: Adjustments (₹{calculations.totalAdjustments.toLocaleString('en-IN')}) are tracked separately and not included in profit calculation</span>
                 </>
               )}
             </p>

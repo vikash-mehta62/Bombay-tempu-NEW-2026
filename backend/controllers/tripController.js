@@ -24,6 +24,9 @@ exports.getAllTrips = async (req, res) => {
       };
     }
     
+    console.log('Fetching trips with query:', query);
+    console.log('Requested by user:', req.user?.fullName, '(', req.user?.role, ')');
+    
     const trips = await Trip.find(query)
       .populate({
         path: 'vehicleId',
@@ -38,6 +41,8 @@ exports.getAllTrips = async (req, res) => {
       .populate('clients.originCity', 'cityName state')
       .populate('clients.destinationCity', 'cityName state')
       .sort({ loadDate: -1 });
+    
+    console.log(`Found ${trips.length} trips`);
     
     res.json({
       success: true,
@@ -108,13 +113,13 @@ exports.createTrip = async (req, res) => {
     await trip.populate('clients.originCity', 'cityName state');
     await trip.populate('clients.destinationCity', 'cityName state');
     
-    // Automatically create POD for each client with "trip_started" status
+    // Automatically create POD for each client with "pod_pending" status
     if (trip.clients && trip.clients.length > 0) {
       const podPromises = trip.clients.map(client => {
         return ClientPOD.create({
           tripId: trip._id,
           clientId: client.clientId._id,
-          status: 'trip_started',
+          status: 'pod_pending',
           notes: 'Automatically created on trip creation',
           createdBy: req.user?._id,
           isActive: true
@@ -164,12 +169,16 @@ exports.updateTrip = async (req, res) => {
       });
     }
     
-    // Update the trip
-    const trip = await Trip.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    )
+    // Update the trip fields
+    Object.keys(req.body).forEach(key => {
+      oldTrip[key] = req.body[key];
+    });
+    
+    // Save the trip (this will trigger pre-save hook for profit calculation)
+    await oldTrip.save();
+    
+    // Populate the trip data
+    const trip = await Trip.findById(req.params.id)
       .populate({
         path: 'vehicleId',
         populate: {
@@ -226,7 +235,7 @@ exports.updateTrip = async (req, res) => {
           return ClientPOD.create({
             tripId: trip._id,
             clientId: clientId,
-            status: 'trip_started',
+            status: 'pod_pending',
             notes: 'Automatically created when client was added to trip',
             createdBy: req.user?._id,
             isActive: true
@@ -267,11 +276,7 @@ exports.updateTrip = async (req, res) => {
 // Delete trip (soft delete)
 exports.deleteTrip = async (req, res) => {
   try {
-    const trip = await Trip.findByIdAndUpdate(
-      req.params.id,
-      { isActive: false, status: 'cancelled' },
-      { new: true }
-    );
+    const trip = await Trip.findById(req.params.id);
     
     if (!trip) {
       return res.status(404).json({
@@ -280,9 +285,72 @@ exports.deleteTrip = async (req, res) => {
       });
     }
     
+    // Mark trip as inactive
+    trip.isActive = false;
+    trip.status = 'cancelled';
+    await trip.save();
+    
+    // Mark all related records as inactive
+    const TripAdvance = require('../models/TripAdvance');
+    const TripExpense = require('../models/TripExpense');
+    const ClientExpense = require('../models/ClientExpense');
+    const ClientPayment = require('../models/ClientPayment');
+    const AdjustmentPayment = require('../models/AdjustmentPayment');
+    const ClientPOD = require('../models/ClientPOD');
+    
+    // Deactivate all trip advances
+    await TripAdvance.updateMany(
+      { tripId: req.params.id },
+      { isActive: false }
+    );
+    
+    // Deactivate all trip expenses
+    await TripExpense.updateMany(
+      { tripId: req.params.id },
+      { isActive: false }
+    );
+    
+    // Deactivate all client expenses for this trip
+    await ClientExpense.updateMany(
+      { tripId: req.params.id },
+      { isActive: false }
+    );
+    
+    // Deactivate all client payments for this trip
+    await ClientPayment.updateMany(
+      { tripId: req.params.id },
+      { isActive: false }
+    );
+    
+    // Deactivate all adjustment payments for this trip
+    await AdjustmentPayment.updateMany(
+      { tripId: req.params.id },
+      { isActive: false }
+    );
+    
+    // Deactivate all PODs for this trip
+    await ClientPOD.updateMany(
+      { tripId: req.params.id },
+      { isActive: false }
+    );
+    
+    // Log activity
+    if (req.user) {
+      await createActivityLog({
+        user: req.user,
+        action: `Deleted trip ${trip.tripNumber} and deactivated all related records (advances, expenses, payments, PODs)`,
+        actionType: 'DELETE',
+        module: 'trips',
+        entityId: trip._id,
+        entityType: 'Trip',
+        details: { tripNumber: trip.tripNumber },
+        req
+      });
+    }
+    
     res.json({
       success: true,
-      message: 'Trip deleted successfully',
+      message: 'Trip and all related records deleted successfully',
       data: trip
     });
   } catch (error) {
@@ -391,6 +459,25 @@ exports.updateActualPodAmt = async (req, res) => {
       });
     }
 
+    // Check for duplicate POD submission within last 15 minutes
+    const TripAdvance = require('../models/TripAdvance');
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+    const duplicateCheck = await TripAdvance.findOne({
+      tripId: trip._id,
+      amount: actualPodAmt,
+      advanceType: 'pod_submission',
+      createdBy: req.user._id,
+      isActive: true,
+      createdAt: { $gte: fifteenMinutesAgo }
+    });
+
+    if (duplicateCheck) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Duplicate POD submission detected. Same amount was submitted within last 15 minutes.' 
+      });
+    }
+
     // First time: Backup original podBalance to actualPodAmt
     if (trip.actualPodAmt === 0) {
       trip.actualPodAmt = trip.podBalance;
@@ -403,7 +490,6 @@ exports.updateActualPodAmt = async (req, res) => {
     const newBalance = balanceBeforeSubmission - actualPodAmt;
     
     // Create advance entry for fleet owner
-    const TripAdvance = require('../models/TripAdvance');
     const advance = await TripAdvance.create({
       tripId: trip._id,
       fleetOwnerId: fleetOwnerId,

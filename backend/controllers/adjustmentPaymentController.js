@@ -7,6 +7,23 @@ exports.createAdjustmentPayment = async (req, res) => {
   try {
     const { tripId, clientId, amount, paymentMode, paymentDate, remarks } = req.body;
     
+    // Check for duplicate entry within last 15 minutes
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+    const duplicateCheck = await AdjustmentPayment.findOne({
+      tripId,
+      clientId,
+      amount,
+      createdBy: req.user._id,
+      createdAt: { $gte: fifteenMinutesAgo }
+    });
+
+    if (duplicateCheck) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Duplicate entry detected. Same adjustment payment was added within last 15 minutes.' 
+      });
+    }
+    
     // Verify trip and client exist
     const trip = await Trip.findById(tripId).populate('clients.clientId', 'fullName');
     if (!trip) {

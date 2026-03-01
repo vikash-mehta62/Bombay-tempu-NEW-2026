@@ -42,6 +42,11 @@ api.interceptors.response.use(
 
 export default api;
 
+// Dashboard API
+export const dashboardAPI = {
+  getStats: () => api.get('/dashboard/stats'),
+};
+
 // Auth API
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
@@ -113,6 +118,15 @@ export const cityAPI = {
   create: (data) => api.post('/cities', data),
 };
 
+// Expense API
+export const expenseAPI = {
+  getAll: (params) => api.get('/expenses', { params }),
+  getByVehicle: (vehicleId) => api.get(`/expenses/vehicle/${vehicleId}`),
+  getStats: (params) => api.get('/expenses/stats', { params }),
+  create: (data) => api.post('/expenses', data),
+  delete: (id) => api.delete(`/expenses/${id}`),
+};
+
 // Activity Logs API
 export const logsAPI = {
   getAll: (params) => api.get('/logs', { params }),
@@ -122,6 +136,14 @@ export const logsAPI = {
   getByModule: (module, limit) => api.get(`/logs/module/${module}`, { params: { limit } }),
   export: (params) => api.get('/logs/export', { params, responseType: 'blob' }),
   cleanup: (days) => api.delete('/logs/cleanup', { params: { days } }),
+};
+
+// Reports API
+export const reportsAPI = {
+  getReports: () => api.get('/reports'),
+  getProfitBreakdown: () => api.get('/reports/profit-breakdown'),
+  getMaintenanceCosts: () => api.get('/reports/maintenance'),
+  getPODReports: (params) => api.get('/reports/pods', { params }),
 };
 
 // Trip Expense API

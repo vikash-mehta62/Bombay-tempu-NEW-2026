@@ -18,8 +18,10 @@ exports.getAllLogs = async (req, res) => {
       limit = 50
     } = req.query;
 
-    // Build query
-    let query = {};
+    // Build query - EXCLUDE READ actions
+    let query = {
+      actionType: { $ne: 'READ' }
+    };
 
     if (userId) {
       query.userId = userId;
@@ -44,7 +46,7 @@ exports.getAllLogs = async (req, res) => {
     }
 
     // Pagination
-    const skip = (page - 1) * limit;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const logs = await ActivityLog.find(query)
       .sort({ timestamp: -1 })
@@ -59,7 +61,8 @@ exports.getAllLogs = async (req, res) => {
       count: logs.length,
       total,
       page: parseInt(page),
-      pages: Math.ceil(total / limit),
+      limit: parseInt(limit),
+      pages: Math.ceil(total / parseInt(limit)),
       data: logs
     });
   } catch (error) {
@@ -161,7 +164,11 @@ exports.getLogStats = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
 
-    let matchQuery = {};
+    // EXCLUDE READ actions from stats
+    let matchQuery = {
+      actionType: { $ne: 'READ' }
+    };
+    
     if (startDate || endDate) {
       matchQuery.timestamp = {};
       if (startDate) matchQuery.timestamp.$gte = new Date(startDate);
@@ -205,7 +212,7 @@ exports.getLogStats = async (req, res) => {
       { $limit: 10 }
     ]);
 
-    // Total logs
+    // Total logs (excluding READ)
     const total = await ActivityLog.countDocuments(matchQuery);
 
     res.status(200).json({

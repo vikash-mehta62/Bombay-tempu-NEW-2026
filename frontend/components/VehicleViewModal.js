@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { Calendar, Truck, FileText, CreditCard, User, AlertTriangle, Bell, DollarSign, TrendingUp, TrendingDown, Download, Loader } from 'lucide-react';
-import { tripAPI, tripExpenseAPI } from '@/lib/api';
+import { tripAPI, tripExpenseAPI, tripAdvanceAPI, expenseAPI } from '@/lib/api';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -13,10 +13,14 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
   const [loading, setLoading] = useState(true);
   const [trips, setTrips] = useState([]);
   const [expenses, setExpenses] = useState([]);
-  const [transactionTab, setTransactionTab] = useState('all'); // 'all', 'income', 'expense'
+  const [advances, setAdvances] = useState([]);
+  const [generalExpenses, setGeneralExpenses] = useState([]);
+  const [transactionTab, setTransactionTab] = useState('all'); // 'all', 'income', 'expense', 'advance'
   const [stats, setStats] = useState({
     totalIncome: 0,
     totalExpenses: 0,
+    totalAdvances: 0,
+    totalGeneralExpenses: 0,
     profit: 0,
     tripCount: 0
   });
@@ -37,25 +41,45 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
         trip => trip.vehicleId?._id === vehicle._id && trip.isActive
       );
       
-      // Fetch expenses for all vehicle trips
+      // Fetch expenses and advances for all vehicle trips
       const expensePromises = vehicleTrips.map(trip => 
         tripExpenseAPI.getByTrip(trip._id).catch(() => ({ data: { data: [], totalExpenses: 0 } }))
       );
-      const expensesResponses = await Promise.all(expensePromises);
       
-      // Flatten all expenses
+      const advancePromises = vehicleTrips.map(trip => 
+        tripAdvanceAPI.getByTrip(trip._id).catch(() => ({ data: { data: [], totalAdvances: 0 } }))
+      );
+      
+      // Fetch general expenses for this vehicle
+      const generalExpensesPromise = expenseAPI.getByVehicle(vehicle._id).catch(() => ({ data: { data: [] } }));
+      
+      const [expensesResponses, advancesResponses, generalExpensesResponse] = await Promise.all([
+        Promise.all(expensePromises),
+        Promise.all(advancePromises),
+        generalExpensesPromise
+      ]);
+      
+      // Flatten all expenses and advances
       const allExpenses = expensesResponses.flatMap(res => res.data.data || []);
+      const allAdvances = advancesResponses.flatMap(res => res.data.data || []);
+      const allGeneralExpenses = generalExpensesResponse.data.data || [];
       
       // Calculate stats
       const totalIncome = vehicleTrips.reduce((sum, trip) => sum + (trip.totalClientRevenue || 0), 0);
       const totalExpenses = allExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
-      const profit = totalIncome - totalExpenses;
+      const totalAdvances = allAdvances.reduce((sum, adv) => sum + (adv.amount || 0), 0);
+      const totalGeneralExpenses = allGeneralExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
+      const profit = totalIncome - totalExpenses - totalAdvances - totalGeneralExpenses;
       
       setTrips(vehicleTrips);
       setExpenses(allExpenses);
+      setAdvances(allAdvances);
+      setGeneralExpenses(allGeneralExpenses);
       setStats({
         totalIncome,
         totalExpenses,
+        totalAdvances,
+        totalGeneralExpenses,
         profit,
         tripCount: vehicleTrips.length
       });
@@ -96,6 +120,18 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
         ]);
       });
       
+      // Add advance rows
+      advances.forEach(advance => {
+        const trip = trips.find(t => t._id === advance.tripId);
+        rows.push([
+          new Date(advance.date).toLocaleDateString('en-IN'),
+          trip?.tripNumber || 'N/A',
+          'Advance',
+          advance.description || 'Advance payment',
+          -advance.amount
+        ]);
+      });
+      
       // Create CSV content
       let csvContent = headers.join(',') + '\n';
       rows.forEach(row => {
@@ -106,6 +142,7 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
       csvContent += '\n';
       csvContent += `"Total Income","","","",${stats.totalIncome}\n`;
       csvContent += `"Total Expenses","","","",${stats.totalExpenses}\n`;
+      csvContent += `"Total Advances","","","",${stats.totalAdvances}\n`;
       csvContent += `"Net Profit","","","",${stats.profit}\n`;
       
       // Download
@@ -143,6 +180,7 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
           ['Total Trips', stats.tripCount.toString()],
           ['Total Income', formatCurrency(stats.totalIncome)],
           ['Total Expenses', formatCurrency(stats.totalExpenses)],
+          ['Total Advances', formatCurrency(stats.totalAdvances)],
           ['Net Profit', formatCurrency(stats.profit)]
         ],
         theme: 'grid',
@@ -169,6 +207,17 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
           'Expense',
           `${expense.expenseType}`,
           formatCurrency(expense.amount)
+        ]);
+      });
+      
+      advances.forEach(advance => {
+        const trip = trips.find(t => t._id === advance.tripId);
+        transactions.push([
+          new Date(advance.date).toLocaleDateString('en-IN'),
+          trip?.tripNumber || 'N/A',
+          'Advance',
+          advance.description || 'Advance',
+          formatCurrency(advance.amount)
         ]);
       });
       
@@ -218,31 +267,33 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
           <p className="text-xs text-green-600 mt-1">From {stats.tripCount} trips</p>
         </div>
         
-        <div className="bg-gradient-to-br from-red-50 to-red-100 p-4 rounded-lg border border-red-200">
+        <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-lg border border-orange-200">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-red-700 font-medium">Total Expenses</p>
-            <TrendingDown className="w-5 h-5 text-red-600" />
+            <p className="text-sm text-orange-700 font-medium">Total Outflow</p>
+            <TrendingDown className="w-5 h-5 text-orange-600" />
           </div>
-          <p className="text-2xl font-bold text-red-900">{formatCurrency(stats.totalExpenses)}</p>
-          <p className="text-xs text-red-600 mt-1">{expenses.length} transactions</p>
+          <p className="text-2xl font-bold text-orange-900">{formatCurrency(stats.totalExpenses + stats.totalAdvances + stats.totalGeneralExpenses)}</p>
+          <p className="text-xs text-orange-600 mt-1">
+            Trip Exp: {formatCurrency(stats.totalExpenses)} | Adv: {formatCurrency(stats.totalAdvances)} | Gen: {formatCurrency(stats.totalGeneralExpenses)}
+          </p>
         </div>
         
         <div className={`bg-gradient-to-br p-4 rounded-lg border ${
           stats.profit >= 0 
             ? 'from-purple-50 to-purple-100 border-purple-200' 
-            : 'from-orange-50 to-orange-100 border-orange-200'
+            : 'from-red-50 to-red-100 border-red-200'
         }`}>
           <div className="flex items-center justify-between mb-2">
-            <p className={`text-sm font-medium ${stats.profit >= 0 ? 'text-purple-700' : 'text-orange-700'}`}>
+            <p className={`text-sm font-medium ${stats.profit >= 0 ? 'text-purple-700' : 'text-red-700'}`}>
               Net Profit
             </p>
-            <DollarSign className={`w-5 h-5 ${stats.profit >= 0 ? 'text-purple-600' : 'text-orange-600'}`} />
+            <DollarSign className={`w-5 h-5 ${stats.profit >= 0 ? 'text-purple-600' : 'text-red-600'}`} />
           </div>
-          <p className={`text-2xl font-bold ${stats.profit >= 0 ? 'text-purple-900' : 'text-orange-900'}`}>
+          <p className={`text-2xl font-bold ${stats.profit >= 0 ? 'text-purple-900' : 'text-red-900'}`}>
             {stats.profit >= 0 ? '+' : ''}{formatCurrency(stats.profit)}
           </p>
-          <p className={`text-xs mt-1 italic ${stats.profit >= 0 ? 'text-purple-600' : 'text-orange-600'}`}>
-            Income - Expenses
+          <p className={`text-xs mt-1 italic ${stats.profit >= 0 ? 'text-purple-600' : 'text-red-600'}`}>
+            Income - Trip Exp - Advances - Gen Exp
           </p>
         </div>
       </div>
@@ -288,7 +339,7 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              All ({trips.length + expenses.length})
+              All ({trips.length + expenses.length + advances.length + generalExpenses.length})
             </button>
             <button
               onClick={() => setTransactionTab('income')}
@@ -308,14 +359,24 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              Expense ({expenses.length})
+              Expense ({expenses.length + generalExpenses.length})
+            </button>
+            <button
+              onClick={() => setTransactionTab('advance')}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                transactionTab === 'advance'
+                  ? 'text-orange-600 border-b-2 border-orange-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Advance ({advances.length})
             </button>
           </div>
         </div>
         
         {/* Transaction List */}
         <div className="space-y-2 max-h-96 overflow-y-auto">
-          {trips.length === 0 && expenses.length === 0 ? (
+          {trips.length === 0 && expenses.length === 0 && advances.length === 0 && generalExpenses.length === 0 ? (
             <div className="text-center py-8 bg-gray-50 rounded-lg">
               <FileText className="w-12 h-12 text-gray-300 mx-auto mb-2" />
               <p className="text-gray-500">No transactions found</p>
@@ -347,14 +408,55 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
                   <div key={`expense-${expense._id}`} className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
                     <div className="flex-1">
                       <div className="flex items-center space-x-2">
-                        <span className="px-2 py-0.5 bg-red-600 text-white text-xs font-bold rounded">EXPENSE</span>
+                        <span className="px-2 py-0.5 bg-red-600 text-white text-xs font-bold rounded">TRIP EXPENSE</span>
                         <p className="text-sm font-medium text-gray-900 capitalize">{expense.expenseType}</p>
                       </div>
                       <p className="text-xs text-gray-600 mt-1">
-                        {trip?.tripNumber || 'N/A'} • {expense.description} • {new Date(expense.date).toLocaleDateString('en-IN')}
+                        {trip?.tripNumber ? `${trip.tripNumber} • ` : ''}{expense.description || 'Trip expense'} • {new Date(expense.date).toLocaleDateString('en-IN')}
                       </p>
                     </div>
                     <p className="text-lg font-bold text-red-600">
+                      -{formatCurrency(expense.amount)}
+                    </p>
+                  </div>
+                );
+              })}
+              
+              {/* Advance Transactions */}
+              {(transactionTab === 'all' || transactionTab === 'advance') && advances.map(advance => {
+                const trip = trips.find(t => t._id === advance.tripId);
+                return (
+                  <div key={`advance-${advance._id}`} className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <span className="px-2 py-0.5 bg-orange-600 text-white text-xs font-bold rounded">ADVANCE</span>
+                        <p className="text-sm font-medium text-gray-900">{advance.description || 'Advance Payment'}</p>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-1">
+                        {trip?.tripNumber || 'N/A'} • {advance.paymentMethod} • {new Date(advance.date).toLocaleDateString('en-IN')}
+                      </p>
+                    </div>
+                    <p className="text-lg font-bold text-orange-600">
+                      -{formatCurrency(advance.amount)}
+                    </p>
+                  </div>
+                );
+              })}
+              
+              {/* General Expense Transactions */}
+              {(transactionTab === 'all' || transactionTab === 'expense') && generalExpenses.map(expense => {
+                return (
+                  <div key={`general-${expense._id}`} className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-200">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <span className="px-2 py-0.5 bg-purple-600 text-white text-xs font-bold rounded">GENERAL EXPENSE</span>
+                        <p className="text-sm font-medium text-gray-900 capitalize">{expense.expenseType.replace('_', ' ')}</p>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-1">
+                        {expense.notes || 'Vehicle expense'} • {new Date(expense.date).toLocaleDateString('en-IN')}
+                      </p>
+                    </div>
+                    <p className="text-lg font-bold text-purple-600">
                       -{formatCurrency(expense.amount)}
                     </p>
                   </div>
@@ -369,10 +471,17 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
                 </div>
               )}
               
-              {transactionTab === 'expense' && expenses.length === 0 && (
+              {transactionTab === 'expense' && expenses.length === 0 && generalExpenses.length === 0 && (
                 <div className="text-center py-8 bg-gray-50 rounded-lg">
                   <TrendingDown className="w-12 h-12 text-gray-300 mx-auto mb-2" />
                   <p className="text-gray-500">No expense transactions</p>
+                </div>
+              )}
+              
+              {transactionTab === 'advance' && advances.length === 0 && (
+                <div className="text-center py-8 bg-gray-50 rounded-lg">
+                  <CreditCard className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                  <p className="text-gray-500">No advance transactions</p>
                 </div>
               )}
             </>

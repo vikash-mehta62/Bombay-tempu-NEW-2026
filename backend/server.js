@@ -53,12 +53,14 @@ if (process.env.NODE_ENV === 'development') {
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/vehicles', require('./routes/vehicles'));
 app.use('/api/fleet-owners', require('./routes/fleetOwners'));
 app.use('/api/drivers', require('./routes/drivers'));
 app.use('/api/clients', require('./routes/clients'));
 app.use('/api/trips', require('./routes/trips'));
 app.use('/api/cities', require('./routes/cities'));
+app.use('/api/expenses', require('./routes/expenses'));
 app.use('/api/trip-expenses', require('./routes/tripExpenses'));
 app.use('/api/trip-advances', require('./routes/tripAdvances'));
 app.use('/api/client-payments', require('./routes/clientPayments'));
@@ -69,6 +71,7 @@ app.use('/api/client-pods', require('./routes/clientPODRoutes'));
 app.use('/api/adjustment-payments', require('./routes/adjustmentPayments'));
 app.use('/api/driver-calculations', require('./routes/driverCalculations'));
 app.use('/api/logs', require('./routes/logs'));
+app.use('/api/reports', require('./routes/reports'));
 
 // Health check route
 app.get('/health', (req, res) => {

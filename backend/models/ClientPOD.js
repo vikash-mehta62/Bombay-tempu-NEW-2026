@@ -13,8 +13,8 @@ const clientPODSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['trip_started', 'trip_completed', 'pod_received', 'pod_submitted', 'settled'],
-    default: 'trip_started'
+    enum: ['pod_pending', 'pod_received', 'pod_submitted', 'settled'],
+    default: 'pod_pending'
   },
   // Array of documents - each status can have multiple documents
   documents: [{
@@ -24,7 +24,7 @@ const clientPODSchema = new mongoose.Schema({
     },
     status: {
       type: String,
-      enum: ['trip_started', 'trip_completed', 'pod_received', 'pod_submitted', 'settled'],
+      enum: ['pod_pending', 'pod_received', 'pod_submitted', 'settled'],
       required: true
     },
     notes: {

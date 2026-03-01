@@ -8,6 +8,23 @@ const createAdvance = async (req, res) => {
   try {
     const { tripId, fleetOwnerId, driverId, amount, description, paymentMethod, date } = req.body;
 
+    // Check for duplicate entry within last 15 minutes
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+    const duplicateCheck = await TripAdvance.findOne({
+      tripId,
+      amount,
+      createdBy: req.user._id,
+      isActive: true,
+      createdAt: { $gte: fifteenMinutesAgo }
+    });
+
+    if (duplicateCheck) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Duplicate entry detected. Same advance was added within last 15 minutes.' 
+      });
+    }
+
     // Verify trip exists
     const trip = await Trip.findById(tripId).populate('vehicleId').populate('driverId');
     if (!trip) {

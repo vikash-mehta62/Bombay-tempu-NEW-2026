@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import CollectionMemoModal from '@/components/CollectionMemoModal';
 import BalanceMemoModal from '@/components/BalanceMemoModal';
 import ReceiptPreviewModal from '@/components/ReceiptPreviewModal';
+import { generateClientReceipt } from '@/utils/receiptGenerator';
 import { 
   ArrowLeft, 
   Truck, 
@@ -30,7 +31,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Upload,
-  Eye
+  Eye,
+  Clock
 } from 'lucide-react';
 
 export default function TripDetailsPage() {
@@ -46,6 +48,7 @@ export default function TripDetailsPage() {
   const [totalExpenses, setTotalExpenses] = useState(0);
   const [totalAdvances, setTotalAdvances] = useState(0);
   const [activeTab, setActiveTab] = useState('expenses'); // Add tab state
+  const [selectedClientIndex, setSelectedClientIndex] = useState(0); // Add client tab state
   
   // Client payment/expense states
   const [showClientPaymentModal, setShowClientPaymentModal] = useState(false);
@@ -104,7 +107,7 @@ export default function TripDetailsPage() {
   const [showPODModal, setShowPODModal] = useState(false);
   const [selectedClientForPOD, setSelectedClientForPOD] = useState(null);
   const [podForm, setPodForm] = useState({
-    status: 'trip_started',
+    status: 'pod_pending',
     document: null,
     notes: ''
   });
@@ -514,13 +517,13 @@ export default function TripDetailsPage() {
     const existingPOD = clientPODs[client.clientId?._id];
     if (existingPOD) {
       setPodForm({
-        status: existingPOD.status || 'trip_started',
+        status: existingPOD.status || 'pod_pending',
         document: null,
         notes: existingPOD.notes || ''
       });
     } else {
       setPodForm({
-        status: 'trip_started',
+        status: 'pod_pending',
         document: null,
         notes: ''
       });
@@ -530,7 +533,7 @@ export default function TripDetailsPage() {
   
   const handleNextPODStep = async (clientId) => {
     const currentStep = currentPODStep[clientId] || 0;
-    const statuses = ['trip_started', 'trip_completed', 'pod_received', 'pod_submitted', 'settled'];
+    const statuses = ['pod_pending', 'pod_received', 'pod_submitted', 'settled'];
     if (currentStep < statuses.length - 1) {
       const newStep = currentStep + 1;
       const newStatus = statuses[newStep];
@@ -576,7 +579,7 @@ export default function TripDetailsPage() {
   
   const handlePreviousPODStep = async (clientId) => {
     const currentStep = currentPODStep[clientId] || 0;
-    const statuses = ['trip_started', 'trip_completed', 'pod_received', 'pod_submitted', 'settled'];
+    const statuses = ['pod_pending', 'pod_received', 'pod_submitted', 'settled'];
     if (currentStep > 0) {
       const newStep = currentStep - 1;
       const newStatus = statuses[newStep];
@@ -621,7 +624,7 @@ export default function TripDetailsPage() {
     try {
       const existingPOD = clientPODs[clientId];
       const currentStep = currentPODStep[clientId] || 0;
-      const statuses = ['trip_started', 'trip_completed', 'pod_received', 'pod_submitted', 'settled'];
+      const statuses = ['pod_pending', 'pod_received', 'pod_submitted', 'settled'];
       const currentStatus = statuses[currentStep];
       
       if (existingPOD) {
@@ -719,7 +722,7 @@ export default function TripDetailsPage() {
       }
       
       setShowPODModal(false);
-      setPodForm({ status: 'trip_started', document: null, notes: '' });
+      setPodForm({ status: 'pod_pending', document: null, notes: '' });
       loadClientPOD(clientId);
     } catch (error) {
       console.error('Error saving POD:', error);
@@ -756,8 +759,7 @@ export default function TripDetailsPage() {
   
   const getStatusLabel = (status) => {
     const labels = {
-      trip_started: 'Trip Started',
-      trip_completed: 'Trip Completed',
+      pod_pending: 'POD Pending',
       pod_received: 'POD Received',
       pod_submitted: 'POD Submitted',
       settled: 'Settled'
@@ -804,11 +806,10 @@ export default function TripDetailsPage() {
   
   const getPODStatusColor = (status) => {
     const colors = {
-      trip_started: 'bg-blue-100 text-blue-800',
-      trip_completed: 'bg-yellow-100 text-yellow-800',
-      pod_received: 'bg-green-100 text-green-800',
-      pod_submitted: 'bg-purple-100 text-purple-800',
-      settled: 'bg-gray-100 text-gray-800'
+      pod_pending: 'bg-orange-100 text-orange-800',
+      pod_received: 'bg-purple-100 text-purple-800',
+      pod_submitted: 'bg-yellow-100 text-yellow-800',
+      settled: 'bg-green-100 text-green-800'
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
@@ -1531,8 +1532,33 @@ export default function TripDetailsPage() {
             </h3>
             <p className="text-sm text-gray-600 mb-4">Individual client details and their respective loads</p>
 
-            {trip.clients && trip.clients.map((client, index) => (
-              <div key={index} className="mb-6 p-4 border-2 border-gray-200 rounded-lg">
+            {/* Client Tabs */}
+            {trip.clients && trip.clients.length > 1 && (
+              <div className="border-b border-gray-200 mb-4">
+                <div className="flex space-x-2 overflow-x-auto">
+                  {trip.clients.map((client, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setSelectedClientIndex(index)}
+                      className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${
+                        selectedClientIndex === index
+                          ? 'text-blue-600 border-b-2 border-blue-600'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      {client.clientId?.fullName || client.clientId?.companyName || `Client ${index + 1}`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Display Selected Client */}
+            {trip.clients && trip.clients[selectedClientIndex] && (() => {
+              const client = trip.clients[selectedClientIndex];
+              const index = selectedClientIndex;
+              return (
+              <div className="mb-6 p-4 border-2 border-gray-200 rounded-lg">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
@@ -1787,6 +1813,48 @@ export default function TripDetailsPage() {
                   )}
                 </div>
 
+                {/* Download Receipt Button */}
+                <div className="mt-4 pt-4 border-t">
+                  <button
+                    onClick={async () => {
+                      try {
+                        // Fetch client payments
+                        let payments = [];
+                        try {
+                          const paymentsResponse = await clientPaymentAPI.getByTripAndClient(params.id, client.clientId._id);
+                          payments = paymentsResponse.data.data || [];
+                        } catch (error) {
+                          console.log('No payments found');
+                        }
+                        
+                        // Prepare trip data for receipt
+                        const receiptTripData = {
+                          tripNumber: trip.tripNumber,
+                          loadDate: client.loadDate,
+                          vehicleNumber: trip.vehicleId?.vehicleNumber,
+                          vehicleId: trip.vehicleId,
+                          clientRate: client.clientRate,
+                          paid: getClientPaymentTotal(client.clientId._id),
+                          expenses: getClientExpenseTotal(client.clientId._id),
+                          balance: client.clientRate - client.adjustment - getClientPaymentTotal(client.clientId._id) + getClientExpenseTotal(client.clientId._id),
+                          originCity: client.originCity,
+                          destinationCity: client.destinationCity,
+                          packagingType: client.packagingType
+                        };
+                        
+                        await generateClientReceipt(receiptTripData, client.clientId, payments, formatCurrency);
+                      } catch (error) {
+                        console.error('Error:', error);
+                        toast.error('Failed to generate receipt');
+                      }
+                    }}
+                    className="w-full btn bg-blue-600 text-white hover:bg-blue-700 flex items-center justify-center space-x-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download Receipt</span>
+                  </button>
+                </div>
+
                 {/* POD Management Section */}
                 <div className="mt-6 pt-6 border-t-2 border-gray-200">
                   {/* Header */}
@@ -1802,7 +1870,7 @@ export default function TripDetailsPage() {
                         </div>
                       </div>
                       <span className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-full shadow-lg animate-pulse">
-                        {clientPODs[client.clientId?._id]?.status?.replace('_', ' ').toUpperCase() || 'TRIP STARTED'}
+                        {clientPODs[client.clientId?._id]?.status?.replace('_', ' ').toUpperCase() || 'POD PENDING'}
                       </span>
                     </div>
                   </div>
@@ -1813,35 +1881,23 @@ export default function TripDetailsPage() {
                       {/* Background Line */}
                       <div className="absolute top-6 left-0 right-0 h-1 bg-gray-200 z-0"></div>
                       
-                      {/* Trip Started */}
+                      {/* POD Pending */}
                       <div className="flex flex-col items-center flex-1 relative z-10">
                         <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-500 transform ${
                           (currentPODStep[client.clientId?._id] || 0) >= 0
-                            ? 'bg-blue-600 text-white shadow-lg scale-110' 
+                            ? 'bg-orange-500 text-white shadow-lg scale-110' 
                             : 'bg-gray-200 text-gray-400'
                         }`}>
-                          <Truck className="w-7 h-7" />
+                          <Clock className="w-7 h-7" />
                         </div>
-                        <p className="text-xs font-bold mt-3 text-center text-gray-700">Trip<br/>Started</p>
-                      </div>
-                      
-                      {/* Trip Completed */}
-                      <div className="flex flex-col items-center flex-1 relative z-10">
-                        <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-500 transform ${
-                          (currentPODStep[client.clientId?._id] || 0) >= 1
-                            ? 'bg-yellow-400 text-white shadow-lg scale-110' 
-                            : 'bg-gray-200 text-gray-400'
-                        }`}>
-                          <CheckCircle className="w-7 h-7" />
-                        </div>
-                        <p className="text-xs font-bold mt-3 text-center text-gray-700">Trip<br/>Completed</p>
+                        <p className="text-xs font-bold mt-3 text-center text-gray-700">POD<br/>Pending</p>
                       </div>
                       
                       {/* POD Received */}
                       <div className="flex flex-col items-center flex-1 relative z-10">
                         <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-500 transform ${
-                          (currentPODStep[client.clientId?._id] || 0) >= 2
-                            ? 'bg-green-500 text-white shadow-lg scale-110' 
+                          (currentPODStep[client.clientId?._id] || 0) >= 1
+                            ? 'bg-purple-500 text-white shadow-lg scale-110' 
                             : 'bg-gray-200 text-gray-400'
                         }`}>
                           <Package className="w-7 h-7" />
@@ -1852,8 +1908,8 @@ export default function TripDetailsPage() {
                       {/* POD Submitted */}
                       <div className="flex flex-col items-center flex-1 relative z-10">
                         <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-500 transform ${
-                          (currentPODStep[client.clientId?._id] || 0) >= 3
-                            ? 'bg-purple-500 text-white shadow-lg scale-110' 
+                          (currentPODStep[client.clientId?._id] || 0) >= 2
+                            ? 'bg-yellow-400 text-white shadow-lg scale-110' 
                             : 'bg-gray-200 text-gray-400'
                         }`}>
                           <Send className="w-7 h-7" />
@@ -1864,8 +1920,8 @@ export default function TripDetailsPage() {
                       {/* Settled */}
                       <div className="flex flex-col items-center flex-1 relative z-10">
                         <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-500 transform ${
-                          (currentPODStep[client.clientId?._id] || 0) >= 4
-                            ? 'bg-gray-700 text-white shadow-lg scale-110' 
+                          (currentPODStep[client.clientId?._id] || 0) >= 3
+                            ? 'bg-green-500 text-white shadow-lg scale-110' 
                             : 'bg-gray-200 text-gray-400'
                         }`}>
                           <Wallet className="w-7 h-7" />
@@ -1891,9 +1947,9 @@ export default function TripDetailsPage() {
                       
                       <button
                         onClick={() => handleNextPODStep(client.clientId?._id)}
-                        disabled={(currentPODStep[client.clientId?._id] || 0) === 4}
+                        disabled={(currentPODStep[client.clientId?._id] || 0) === 3}
                         className={`flex items-center space-x-2 px-6 py-2 rounded-lg font-semibold transition-all duration-300 ${
-                          (currentPODStep[client.clientId?._id] || 0) === 4
+                          (currentPODStep[client.clientId?._id] || 0) === 3
                             ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                             : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'
                         }`}
@@ -1931,7 +1987,7 @@ export default function TripDetailsPage() {
                           <div className="space-y-3">
                             <div>
                               <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                Current Status: {getStatusLabel(['trip_started', 'trip_completed', 'pod_received', 'pod_submitted', 'settled'][currentPODStep[client.clientId?._id] || 0])}
+                                Current Status: {getStatusLabel(['pod_pending', 'pod_received', 'pod_submitted', 'settled'][currentPODStep[client.clientId?._id] || 0])}
                               </label>
                               <input
                                 type="file"
@@ -1998,7 +2054,7 @@ export default function TripDetailsPage() {
                     {clientPODs[client.clientId?._id]?.documents && clientPODs[client.clientId._id].documents.length > 0 ? (
                       <div className="space-y-4">
                         {/* Group documents by status */}
-                        {['trip_started', 'trip_completed', 'pod_received', 'pod_submitted', 'settled'].map((status) => {
+                        {['pod_pending', 'pod_received', 'pod_submitted', 'settled'].map((status) => {
                           const docs = getDocumentsByStatus(clientPODs[client.clientId._id], status);
                           if (docs.length === 0) return null;
                           
@@ -2084,7 +2140,8 @@ export default function TripDetailsPage() {
                   </div>
                 </div>
               </div>
-            ))}
+            );
+            })()}
             
             {/* Collection Memos & Balance Memos - Below all clients */}
             <div className="mt-6 grid grid-cols-2 gap-4">
@@ -2752,9 +2809,9 @@ export default function TripDetailsPage() {
                   className="input"
                   required
                 >
-                  <option value="trip_started">🚛 Trip Started</option>
-                  <option value="trip_completed">✅ Trip Completed</option>
+                  <option value="pod_pending">🟠 POD Pending</option>
                   <option value="pod_received">📥 POD Received</option>
+                  <option value="pod_submitted">📤 POD Submitted</option>
                   <option value="pod_submitted">📤 POD Submitted</option>
                   <option value="settled">💰 Settled</option>
                 </select>

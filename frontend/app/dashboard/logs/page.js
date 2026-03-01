@@ -17,6 +17,12 @@ export default function ActivityLogsPage() {
   const [logs, setLogs] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    page: 1,
+    limit: 50,
+    pages: 1
+  });
   const [filters, setFilters] = useState({
     module: '',
     actionType: '',
@@ -33,14 +39,18 @@ export default function ActivityLogsPage() {
 
   const loadLogs = async () => {
     try {
-      // Filter out READ operations on the frontend as well
+      setLoading(true);
       const response = await logsAPI.getAll({
         ...filters,
         actionType: filters.actionType || undefined
       });
-      // Exclude READ operations
-      const filteredLogs = response.data.data.filter(log => log.actionType !== 'READ');
-      setLogs(filteredLogs);
+      setLogs(response.data.data);
+      setPagination({
+        total: response.data.total,
+        page: response.data.page,
+        limit: response.data.limit,
+        pages: response.data.pages
+      });
     } catch (error) {
       toast.error('Failed to load activity logs');
       console.error(error);
@@ -369,9 +379,44 @@ export default function ActivityLogsPage() {
         </div>
       </div>
 
-      {/* Summary */}
+      {/* Summary and Pagination */}
       <div className="flex items-center justify-between text-sm text-gray-600">
-        <p>Showing {logs.length} activity logs</p>
+        <p>
+          Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} activity logs
+        </p>
+        
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setFilters({ ...filters, page: Math.max(1, filters.page - 1) })}
+            disabled={pagination.page === 1}
+            className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Previous
+          </button>
+          
+          <span className="px-3 py-1">
+            Page {pagination.page} of {pagination.pages}
+          </span>
+          
+          <button
+            onClick={() => setFilters({ ...filters, page: filters.page + 1 })}
+            disabled={pagination.page >= pagination.pages}
+            className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Next
+          </button>
+          
+          <select
+            value={filters.limit}
+            onChange={(e) => setFilters({ ...filters, limit: parseInt(e.target.value), page: 1 })}
+            className="px-3 py-1 border border-gray-300 rounded"
+          >
+            <option value="25">25 per page</option>
+            <option value="50">50 per page</option>
+            <option value="100">100 per page</option>
+            <option value="200">200 per page</option>
+          </select>
+        </div>
       </div>
     </div>
   );

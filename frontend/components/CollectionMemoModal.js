@@ -220,18 +220,11 @@ export default function CollectionMemoModal({
             <h1 className="mt-1 text-center font-bold text-[18pt]">
               Bombay Uttranchal Tempo Service
             </h1>
-            <p className="text-center italic font-bold text-[11pt] mt-1">
-              Transport Contractor & Commission Agent
-            </p>
+          
 
             {/* Services / Address */}
             <div className="mt-1 text-[11pt]">
-              <p className="px-6 text-left font-bold">
-                Daily Service : <i className="text-blue-600">Delhi, Haryana, Rajasthan, Punjab, UP, UK & All Over India</i>
-              </p>
-              <p className="text-center font-bold">
-                Services : <i>1109, 1110, 407, 20ft, 22ft Open & Container etc</i>
-              </p>
+            
               <p className="text-center font-bold">
                 Add: <i>Building No. C13, Gala No.01, Parasnath Complex,</i>
               </p>
