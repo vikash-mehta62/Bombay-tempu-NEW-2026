@@ -66,7 +66,7 @@ const createExpense = async (req, res) => {
       fleetOwnerId: isFleetOwned ? (fleetOwnerId || null) : null,
       vehicleId: !isFleetOwned ? (vehicleId || null) : null,
       expenseType,
-      amount,
+      amount: Number(amount), // Convert to number
       description,
       additionalNotes,
       receiptNumber,
@@ -74,6 +74,44 @@ const createExpense = async (req, res) => {
       createdBy: req.user._id,
       isActive: true
     });
+
+    console.log('Expense created:', {
+      expenseId: expense._id,
+      isFleetOwned,
+      expenseTarget,
+      amount: Number(amount),
+      tripId
+    });
+
+    // Recalculate profit for self-owned vehicles
+    if (!isFleetOwned) {
+      const TripAdvance = require('../models/TripAdvance');
+      
+      // Get all expenses for this trip
+      const allExpenses = await TripExpense.find({ tripId, isActive: true });
+      const totalExpenses = allExpenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
+      
+      // Get all advances for this trip
+      const allAdvances = await TripAdvance.find({ tripId, isActive: true });
+      const totalAdvances = allAdvances.reduce((sum, adv) => sum + Number(adv.amount), 0);
+      
+      // Update profit: Revenue - Expenses - Advances (ensure all are numbers)
+      const revenue = Number(trip.totalClientRevenue) || 0;
+      const expenses = Number(totalExpenses) || 0;
+      const advances = Number(totalAdvances) || 0;
+      
+      trip.profitLoss = revenue - expenses - advances;
+      await trip.save();
+      
+      console.log('Profit recalculated for self-owned vehicle:', {
+        tripId: trip._id,
+        revenue,
+        totalExpenses: expenses,
+        totalAdvances: advances,
+        calculation: `${revenue} - ${expenses} - ${advances} = ${trip.profitLoss}`,
+        newProfit: trip.profitLoss
+      });
+    }
 
     // Log activity
     await createActivityLog({
@@ -140,6 +178,43 @@ const deleteExpense = async (req, res) => {
 
     expense.isActive = false;
     await expense.save();
+
+    console.log('Expense deleted:', {
+      expenseId: expense._id,
+      amount: expense.amount,
+      tripId: expense.tripId._id
+    });
+
+    // Recalculate profit for self-owned vehicles
+    const trip = await Trip.findById(expense.tripId).populate('vehicleId');
+    if (trip && trip.vehicleId?.ownershipType === 'self_owned') {
+      const TripAdvance = require('../models/TripAdvance');
+      
+      // Get all active expenses for this trip
+      const allExpenses = await TripExpense.find({ tripId: expense.tripId, isActive: true });
+      const totalExpenses = allExpenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
+      
+      // Get all active advances for this trip
+      const allAdvances = await TripAdvance.find({ tripId: expense.tripId, isActive: true });
+      const totalAdvances = allAdvances.reduce((sum, adv) => sum + Number(adv.amount), 0);
+      
+      // Update profit: Revenue - Expenses - Advances (ensure all are numbers)
+      const revenue = Number(trip.totalClientRevenue) || 0;
+      const expenses = Number(totalExpenses) || 0;
+      const advances = Number(totalAdvances) || 0;
+      
+      trip.profitLoss = revenue - expenses - advances;
+      await trip.save();
+      
+      console.log('Profit recalculated after expense deletion:', {
+        tripId: trip._id,
+        revenue,
+        totalExpenses: expenses,
+        totalAdvances: advances,
+        calculation: `${revenue} - ${expenses} - ${advances} = ${trip.profitLoss}`,
+        newProfit: trip.profitLoss
+      });
+    }
 
     // Log activity
     await createActivityLog({

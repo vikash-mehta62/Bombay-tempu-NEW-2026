@@ -202,15 +202,17 @@ tripSchema.pre('save', async function(next) {
     this.profitLoss = this.totalClientRevenue - this.totalCosts + commissionEffect + (this.podBalance || 0);
   } else {
     // Self-Owned Vehicle: Simple calculation
-    // Profit = Revenue (NO ADJUSTMENT)
-    // No commission, no POD, no hire cost
-    this.totalCosts = 0;
-    this.profitLoss = this.totalClientRevenue;
-    
-    // Reset commission and POD for self-owned vehicles
-    this.commissionType = 'none';
-    this.commissionAmount = 0;
-    this.podBalance = 0;
+    // Profit = Revenue - Expenses - Advances
+    // Only recalculate if not manually set (skip if profitLoss was modified directly)
+    if (!this.isModified('profitLoss')) {
+      this.totalCosts = 0;
+      this.profitLoss = this.totalClientRevenue;
+      
+      // Reset commission and POD for self-owned vehicles
+      this.commissionType = 'none';
+      this.commissionAmount = 0;
+      this.podBalance = 0;
+    }
   }
   
   next();

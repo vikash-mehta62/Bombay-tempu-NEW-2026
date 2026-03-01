@@ -63,13 +63,57 @@ const createAdvance = async (req, res) => {
       tripId,
       fleetOwnerId: isFleetOwned ? fleetOwnerId : null,
       driverId: !isFleetOwned ? driverId : null,
-      amount,
+      amount: Number(amount), // Convert to number
       description,
       paymentMethod,
       date,
       createdBy: req.user._id,
       isActive: true
     });
+
+    console.log('Advance created:', {
+      advanceId: advance._id,
+      isFleetOwned,
+      recipientName,
+      amount: Number(amount),
+      tripId
+    });
+
+    // Recalculate profit for self-owned vehicles
+    if (!isFleetOwned) {
+      const TripExpense = require('../models/TripExpense');
+      
+      // Get all expenses for this trip
+      const allExpenses = await TripExpense.find({ tripId, isActive: true });
+      const totalExpenses = allExpenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
+      
+      // Get all advances for this trip
+      const allAdvances = await TripAdvance.find({ tripId, isActive: true });
+      const totalAdvances = allAdvances.reduce((sum, adv) => sum + Number(adv.amount), 0);
+      
+      console.log('Debug - All advances found:', {
+        count: allAdvances.length,
+        advances: allAdvances.map(a => ({ id: a._id, amount: a.amount, isActive: a.isActive })),
+        totalAdvances
+      });
+      
+      // Update profit: Revenue - Expenses - Advances (ensure all are numbers)
+      const revenue = Number(trip.totalClientRevenue) || 0;
+      const expenses = Number(totalExpenses) || 0;
+      const advances = Number(totalAdvances) || 0;
+      
+      trip.profitLoss = revenue - expenses - advances;
+      await trip.save();
+      
+      console.log('Profit recalculated for self-owned vehicle:', {
+        tripId: trip._id,
+        revenue,
+        totalExpenses: expenses,
+        totalAdvances: advances,
+        calculation: `${revenue} - ${expenses} - ${advances} = ${trip.profitLoss}`,
+        newProfit: trip.profitLoss
+      });
+    }
 
     // Log activity
     await createActivityLog({
@@ -130,11 +174,26 @@ const deleteAdvance = async (req, res) => {
   try {
     const advance = await TripAdvance.findById(req.params.id)
       .populate('tripId', 'tripNumber')
-      .populate('fleetOwnerId', 'fullName');
+      .populate('fleetOwnerId', 'fullName')
+      .populate('driverId', 'fullName');
     
     if (!advance) {
       return res.status(404).json({ success: false, message: 'Advance not found' });
     }
+
+    // Determine if fleet-owned or self-owned
+    const isFleetOwned = advance.fleetOwnerId !== null;
+    const recipientName = isFleetOwned 
+      ? (advance.fleetOwnerId?.fullName || 'Fleet Owner')
+      : (advance.driverId?.fullName || 'Driver');
+
+    console.log('Deleting advance:', {
+      advanceId: advance._id,
+      isFleetOwned,
+      recipientName,
+      amount: advance.amount,
+      advanceType: advance.advanceType
+    });
 
     // Check if this is a POD submission advance
     if (advance.advanceType === 'pod_submission') {
@@ -162,22 +221,62 @@ const deleteAdvance = async (req, res) => {
     advance.isActive = false;
     await advance.save();
 
+    // Recalculate profit for self-owned vehicles
+    const trip = await Trip.findById(advance.tripId).populate('vehicleId');
+    if (trip && trip.vehicleId?.ownershipType === 'self_owned') {
+      const TripExpense = require('../models/TripExpense');
+      
+      // Get all active expenses for this trip
+      const allExpenses = await TripExpense.find({ tripId: advance.tripId, isActive: true });
+      const totalExpenses = allExpenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
+      
+      // Get all active advances for this trip
+      const allAdvances = await TripAdvance.find({ tripId: advance.tripId, isActive: true });
+      const totalAdvances = allAdvances.reduce((sum, adv) => sum + Number(adv.amount), 0);
+      
+      // Update profit: Revenue - Expenses - Advances (ensure all are numbers)
+      const revenue = Number(trip.totalClientRevenue) || 0;
+      const expenses = Number(totalExpenses) || 0;
+      const advances = Number(totalAdvances) || 0;
+      
+      trip.profitLoss = revenue - expenses - advances;
+      await trip.save();
+      
+      console.log('Profit recalculated for self-owned vehicle:', {
+        tripId: trip._id,
+        revenue,
+        totalExpenses: expenses,
+        totalAdvances: advances,
+        calculation: `${revenue} - ${expenses} - ${advances} = ${trip.profitLoss}`,
+        newProfit: trip.profitLoss
+      });
+    }
+
     // Log activity
+    const activityDetails = {
+      tripId: advance.tripId._id,
+      tripNumber: advance.tripId.tripNumber,
+      amount: advance.amount,
+      advanceType: advance.advanceType,
+      recipientType: isFleetOwned ? 'fleet_owner' : 'driver'
+    };
+
+    if (isFleetOwned && advance.fleetOwnerId) {
+      activityDetails.fleetOwnerId = advance.fleetOwnerId._id;
+      activityDetails.fleetOwnerName = advance.fleetOwnerId.fullName;
+    } else if (!isFleetOwned && advance.driverId) {
+      activityDetails.driverId = advance.driverId._id;
+      activityDetails.driverName = advance.driverId.fullName;
+    }
+
     await createActivityLog({
       user: req.user,
-      action: `Deleted ${advance.advanceType === 'pod_submission' ? 'POD submission' : 'advance'} of ₹${advance.amount} to ${advance.fleetOwnerId.fullName}`,
+      action: `Deleted ${advance.advanceType === 'pod_submission' ? 'POD submission' : 'advance'} of ₹${advance.amount} to ${recipientName}`,
       actionType: 'DELETE',
       module: 'expenses',
       entityId: advance._id,
       entityType: 'TripAdvance',
-      details: {
-        tripId: advance.tripId._id,
-        tripNumber: advance.tripId.tripNumber,
-        fleetOwnerId: advance.fleetOwnerId._id,
-        fleetOwnerName: advance.fleetOwnerId.fullName,
-        amount: advance.amount,
-        advanceType: advance.advanceType
-      },
+      details: activityDetails,
       req
     });
 
@@ -188,6 +287,7 @@ const deleteAdvance = async (req, res) => {
         : 'Advance deleted successfully'
     });
   } catch (error) {
+    console.error('Error deleting advance:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

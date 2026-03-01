@@ -894,6 +894,12 @@ export default function TripDetailsPage() {
   const commission = trip.commissionAmount || 0;
   const balancePOD = trip.podBalance || 0;
   const fleetOwnerBalance = totalFleetOwnerPayment - commission - balancePOD - totalAdvances;
+  
+  // Calculate Real-Time Profit for Self-Owned Vehicles
+  // For self-owned: Profit = Revenue - Vehicle Expenses - Driver Advances
+  const realTimeProfit = isFleetOwned 
+    ? trip.profitLoss // Use backend calculation for fleet-owned
+    : trip.totalClientRevenue - totalExpenses - totalAdvances; // Real-time calculation for self-owned
 
   return (
     <div className="space-y-6">
@@ -1131,9 +1137,9 @@ export default function TripDetailsPage() {
                     <div className="flex justify-between">
                       <span className="text-sm font-semibold text-gray-900">Profit / Loss</span>
                       <span className={`text-lg font-bold ${
-                        trip.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'
+                        realTimeProfit >= 0 ? 'text-green-600' : 'text-red-600'
                       }`}>
-                        {trip.profitLoss >= 0 ? '+' : ''}{formatCurrency(trip.profitLoss)}
+                        {realTimeProfit >= 0 ? '+' : ''}{formatCurrency(realTimeProfit)}
                       </span>
                     </div>
                     {isFleetOwned ? (
@@ -1148,10 +1154,10 @@ export default function TripDetailsPage() {
                     ) : (
                       <>
                         <p className="text-xs text-blue-600 mt-1 italic font-medium">
-                          Formula: Revenue - Adjustments
+                          Formula: Revenue - Vehicle Expenses - Driver Advances
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
-                          = {formatCurrency(trip.totalClientRevenue)} - {formatCurrency(trip.totalAdjustments)}
+                          = {formatCurrency(trip.totalClientRevenue)} - {formatCurrency(totalExpenses)} - {formatCurrency(totalAdvances)}
                         </p>
                       </>
                     )}
@@ -1674,20 +1680,20 @@ export default function TripDetailsPage() {
                           Due Balance
                         </span>
                         <span className={`text-lg font-bold ${
-                          (client.clientRate + client.adjustment - getClientPaymentTotal(client.clientId?._id) + getClientExpenseTotal(client.clientId?._id)) >= 0 
+                          (client.clientRate - getClientPaymentTotal(client.clientId?._id) + getClientExpenseTotal(client.clientId?._id)) >= 0 
                             ? 'text-red-600' 
                             : 'text-green-600'
                         }`}>
                           {formatCurrency(
-                            client.clientRate - client.adjustment - getClientPaymentTotal(client.clientId?._id) + getClientExpenseTotal(client.clientId?._id)
+                            client.clientRate -  getClientPaymentTotal(client.clientId?._id) + getClientExpenseTotal(client.clientId?._id)
                           )}
                         </span>
                       </div>
                       <div className="text-xs text-blue-600 font-medium">
-                        Rate - Adj - Payments + Expenses
+                        Rate - Payments + Expenses
                       </div>
                       <div className="text-xs text-gray-500">
-                        {formatCurrency(client.clientRate)} - {formatCurrency(client.adjustment)} - {formatCurrency(getClientPaymentTotal(client.clientId?._id))} + {formatCurrency(getClientExpenseTotal(client.clientId?._id))}
+                        {formatCurrency(client.clientRate)}- {formatCurrency(getClientPaymentTotal(client.clientId?._id))} + {formatCurrency(getClientExpenseTotal(client.clientId?._id))}
                       </div>
                     </div>
                     
