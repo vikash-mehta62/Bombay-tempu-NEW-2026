@@ -9,7 +9,7 @@ Added comprehensive POD (Proof of Delivery) management system where each client 
 - ✅ **Lucide React Icons**: Replaced emoji icons with professional Lucide icons
 - ✅ **Animations**: Added smooth transitions, hover effects, and pulse animations
 - ✅ **Visual Timeline**: Interactive 5-stage status timeline with color-coded progress
-- ✅ **Cloudinary Integration**: Documents stored on Cloudinary cloud storage
+- ✅ **Cloudinary Integration**: Documents stored on Cloudinary cloud storage 
 - ✅ **Express-FileUpload**: Replaced multer with express-fileupload for better file handling 
 - ✅ **Gradient Design**: Modern gradient backgrounds and shadow effects
 - ✅ **Responsive Layout**: Three-section design (Header, Timeline, Documents)
