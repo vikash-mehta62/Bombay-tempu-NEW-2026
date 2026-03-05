@@ -145,27 +145,18 @@ exports.uploadPODDocument = async (req, res) => {
     const { id } = req.params;
     const { status, notes } = req.body; // Get status for this document
 
-    // Check if files exist
-    if (!req.files || !req.files.document) {
+    // Check if file exists (multer)
+    if (!req.file) {
       return res.status(400).json({
         success: false,
         message: 'No file uploaded'
       });
     }
 
-    const file = req.files.document;
-
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
-    if (!allowedTypes.includes(file.mimetype)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Only PDF, JPG, JPEG, and PNG files are allowed'
-      });
-    }
+    const file = req.file;
 
     console.log('📤 Uploading to Cloudinary...');
-    console.log('File name:', file.name);
+    console.log('File name:', file.originalname);
     console.log('File size:', file.size);
     console.log('Document status:', status);
 
@@ -188,8 +179,8 @@ exports.uploadPODDocument = async (req, res) => {
         }
       );
 
-      // Write buffer to stream
-      uploadStream.end(file.data);
+      // Write buffer to stream (multer stores in buffer)
+      uploadStream.end(file.buffer);
     });
 
     const result = await uploadPromise;

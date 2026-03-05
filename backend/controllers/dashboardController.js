@@ -36,6 +36,15 @@ exports.getDashboardStats = async (req, res) => {
     const totalClientExpenses = clientExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
     const totalExpenses = totalTripExpenses + totalClientExpenses;
     
+    console.log('Dashboard Expenses Debug:', {
+      totalTrips,
+      tripExpensesCount: tripExpenses.length,
+      totalTripExpenses,
+      clientExpensesCount: clientExpenses.length,
+      totalClientExpenses,
+      totalExpenses
+    });
+    
     // Get vehicle, driver, and client counts
     const [totalVehicles, totalDrivers, totalClients] = await Promise.all([
       Vehicle.countDocuments({ isActive: true }),

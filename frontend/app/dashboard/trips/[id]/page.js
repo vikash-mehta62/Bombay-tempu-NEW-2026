@@ -1145,10 +1145,10 @@ export default function TripDetailsPage() {
                     {isFleetOwned ? (
                       <>
                         <p className="text-xs text-blue-600 mt-1 italic font-medium">
-                          Formula: Revenue - Hire - Adjustments + Commission + POD
+                          Formula: Revenue - Hire  + Commission + POD
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
-                          = {formatCurrency(trip.totalClientRevenue)} - {formatCurrency(trip.clients?.reduce((sum, c) => sum + (c.truckHireCost || 0), 0) || 0)} - {formatCurrency(trip.totalAdjustments)} {trip.commissionType === 'from_fleet_owner' ? '+' : trip.commissionType === 'to_fleet_owner' ? '-' : '+'} {formatCurrency(commission)} + {formatCurrency(trip.podBalance)}
+                          = {formatCurrency(trip.totalClientRevenue)} - {formatCurrency(trip.clients?.reduce((sum, c) => sum + (c.truckHireCost || 0), 0) || 0)}  {trip.commissionType === 'from_fleet_owner' ? '+' : trip.commissionType === 'to_fleet_owner' ? '-' : '+'} {formatCurrency(commission)} + {formatCurrency(trip.podBalance)}
                         </p>
                       </>
                     ) : (
@@ -1706,19 +1706,19 @@ export default function TripDetailsPage() {
                             Client Profit
                           </span>
                           <span className={`text-lg font-bold ${
-                            (client.clientRate - client.truckHireCost - client.adjustment) >= 0 
+                            (client.clientRate - client.truckHireCost ) >= 0 
                               ? 'text-green-600' 
                               : 'text-red-600'
                           }`}>
-                            {(client.clientRate - client.truckHireCost + client.adjustment) >= 0 ? '+' : ''}
-                            {formatCurrency(client.clientRate - client.truckHireCost - client.adjustment)}
+                            {(client.clientRate - client.truckHireCost ) >= 0 ? '+' : ''}
+                            {formatCurrency(client.clientRate - client.truckHireCost )}
                           </span>
                         </div>
                         <div className="text-xs text-blue-600 font-medium">
                           Rate - Hire Cost - Adj
                         </div>
                         <div className="text-xs text-gray-500">
-                          {formatCurrency(client.clientRate)} - {formatCurrency(client.truckHireCost)} + {formatCurrency(client.adjustment)}
+                          {formatCurrency(client.clientRate)} - {formatCurrency(client.truckHireCost)}
                         </div>
                       </div>
                     )}

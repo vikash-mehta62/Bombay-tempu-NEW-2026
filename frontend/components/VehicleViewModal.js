@@ -389,7 +389,16 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
                   <div className="flex-1">
                     <div className="flex items-center space-x-2">
                       <span className="px-2 py-0.5 bg-green-600 text-white text-xs font-bold rounded">INCOME</span>
-                      <p className="text-sm font-medium text-gray-900">{trip.tripNumber}</p>
+                      <a 
+                        href={`/trip/${trip._id}`}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          window.location.href = `/trip/${trip._id}`;
+                        }}
+                      >
+                        {trip.tripNumber}
+                      </a>
                     </div>
                     <p className="text-xs text-gray-600 mt-1">
                       Trip Revenue • {new Date(trip.loadDate).toLocaleDateString('en-IN')}
@@ -412,7 +421,22 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
                         <p className="text-sm font-medium text-gray-900 capitalize">{expense.expenseType}</p>
                       </div>
                       <p className="text-xs text-gray-600 mt-1">
-                        {trip?.tripNumber ? `${trip.tripNumber} • ` : ''}{expense.description || 'Trip expense'} • {new Date(expense.date).toLocaleDateString('en-IN')}
+                        {trip?.tripNumber && trip._id ? (
+                          <>
+                            <a 
+                              href={`/trip/${trip._id}`}
+                              className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                window.location.href = `/trip/${trip._id}`;
+                              }}
+                            >
+                              {trip.tripNumber}
+                            </a>
+                            {' • '}
+                          </>
+                        ) : ''}
+                        {expense.description || 'Trip expense'} • {new Date(expense.date).toLocaleDateString('en-IN')}
                       </p>
                     </div>
                     <p className="text-lg font-bold text-red-600">
@@ -433,7 +457,18 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
                         <p className="text-sm font-medium text-gray-900">{advance.description || 'Advance Payment'}</p>
                       </div>
                       <p className="text-xs text-gray-600 mt-1">
-                        {trip?.tripNumber || 'N/A'} • {advance.paymentMethod} • {new Date(advance.date).toLocaleDateString('en-IN')}
+                        {trip?.tripNumber && trip._id ? (
+                          <a 
+                            href={`/trip/${trip._id}`}
+                            className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              window.location.href = `/trip/${trip._id}`;
+                            }}
+                          >
+                            {trip.tripNumber}
+                          </a>
+                        ) : 'N/A'} • {advance.paymentMethod} • {new Date(advance.date).toLocaleDateString('en-IN')}
                       </p>
                     </div>
                     <p className="text-lg font-bold text-orange-600">

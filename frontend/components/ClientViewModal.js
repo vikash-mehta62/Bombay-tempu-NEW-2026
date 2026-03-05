@@ -465,7 +465,18 @@ function ClientPaymentStatementTab({ client, formatCurrency }) {
               ) : (
                 filteredTransactions.map((txn) => (
                   <tr key={txn.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 font-medium text-gray-900">{txn.tripNumber}</td>
+                    <td className="px-3 py-2 font-medium">
+                      <a 
+                        href={`/trip/${txn.tripId}`}
+                        className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          window.location.href = `/trip/${txn.tripId}`;
+                        }}
+                      >
+                        {txn.tripNumber}
+                      </a>
+                    </td>
                     <td className="px-3 py-2 text-gray-600">
                       <div className="text-xs">
                         {new Date(txn.date).toLocaleDateString('en-IN')}
@@ -614,7 +625,16 @@ function ClientPaymentStatementTab({ client, formatCurrency }) {
                         )}
                       </div>
                       <div>
-                        <h5 className="font-bold text-gray-900">{trip.tripNumber}</h5>
+                        <a 
+                          href={`/trip/${trip.tripId}`}
+                          className="font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            window.location.href = `/trip/${trip.tripId}`;
+                          }}
+                        >
+                          {trip.tripNumber}
+                        </a>
                         <p className="text-xs text-gray-600">
                           {new Date(trip.loadDate).toLocaleDateString('en-IN')}
                         </p>
@@ -692,7 +712,7 @@ function ClientPaymentStatementTab({ client, formatCurrency }) {
 }
 
 // Adjustment Tab Component
-function ClientAdjustmentTab({ client, formatCurrency }) {
+function ClientAdjustmentTab({ client, formatCurrency, isAdminView = false }) {
   const [loading, setLoading] = useState(true);
   const [adjustmentTrips, setAdjustmentTrips] = useState([]);
   const [adjustmentPayments, setAdjustmentPayments] = useState({});
@@ -937,7 +957,16 @@ function ClientAdjustmentTab({ client, formatCurrency }) {
               }`}>
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <h5 className="font-bold text-gray-900">{trip.tripNumber}</h5>
+                    <a 
+                      href={`/trip/${trip._id}`}
+                      className="font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        window.location.href = `/trip/${trip._id}`;
+                      }}
+                    >
+                      {trip.tripNumber}
+                    </a>
                     <p className="text-xs text-gray-600">
                       {new Date(trip.loadDate).toLocaleDateString('en-IN')}
                     </p>
@@ -1006,7 +1035,7 @@ function ClientAdjustmentTab({ client, formatCurrency }) {
                   </div>
                 )}
                 
-                {pending > 0 && (
+                {isAdminView && pending > 0 && (
                   <button
                     onClick={() => handleOpenPaymentModal(trip)}
                     className="w-full btn bg-orange-600 text-white hover:bg-orange-700 text-sm"
@@ -1096,7 +1125,7 @@ function ClientAdjustmentTab({ client, formatCurrency }) {
   );
 }
 
-export default function ClientViewModal({ isOpen, onClose, client }) {
+export default function ClientViewModal({ isOpen, onClose, client, isAdminView = true }) {
   const [activeTab, setActiveTab] = useState('details');
   
   if (!client) return null;
@@ -1201,7 +1230,11 @@ export default function ClientViewModal({ isOpen, onClose, client }) {
 
         {/* Adjustment Tab */}
         {activeTab === 'adjustment' && (
-          <ClientAdjustmentTab client={client} formatCurrency={formatCurrency} />
+          <ClientAdjustmentTab 
+            client={client} 
+            formatCurrency={formatCurrency}
+            isAdminView={isAdminView}
+          />
         )}
       </div>
 

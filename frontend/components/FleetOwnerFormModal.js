@@ -2,67 +2,62 @@
 
 import { useState, useEffect } from 'react';
 import Modal from './Modal';
-import { driverAPI } from '@/lib/api';
+import { fleetOwnerAPI } from '@/lib/api';
 import { toast } from 'sonner';
 import { Loader2, Info } from 'lucide-react';
 
-export default function DriverFormModal({ isOpen, onClose, onSuccess, editData = null }) {
+export default function FleetOwnerFormModal({ isOpen, onClose, onSuccess, editData = null }) {
   const [loading, setLoading] = useState(false);
   
   const [formData, setFormData] = useState({
     fullName: '',
+    companyName: '',
     contact: '',
     email: '',
     address: '',
-    licenseNumber: '',
-    licenseExpiry: '',
-    aadhaarNumber: '',
-    dateOfBirth: '',
-    joiningDate: new Date().toISOString().split('T')[0],
-    emergencyContact: {
-      name: '',
-      phone: '',
-      relation: ''
-    },
-    status: 'active'
+    panNumber: '',
+    gstNumber: '',
+    bankDetails: {
+      accountNumber: '',
+      ifscCode: '',
+      bankName: '',
+      accountHolderName: ''
+    }
   });
 
   useEffect(() => {
     if (isOpen && editData) {
       setFormData({
         fullName: editData.fullName || '',
+        companyName: editData.companyName || '',
         contact: editData.contact || '',
         email: editData.email || '',
         address: editData.address || '',
-        licenseNumber: editData.licenseNumber || '',
-        licenseExpiry: editData.licenseExpiry ? editData.licenseExpiry.split('T')[0] : '',
-        aadhaarNumber: editData.aadhaarNumber || '',
-        dateOfBirth: editData.dateOfBirth ? editData.dateOfBirth.split('T')[0] : '',
-        joiningDate: editData.joiningDate ? editData.joiningDate.split('T')[0] : '',
-        emergencyContact: editData.emergencyContact || {
-          name: '',
-          phone: '',
-          relation: ''
-        },
-        status: editData.status || 'active'
+        panNumber: editData.panNumber || '',
+        gstNumber: editData.gstNumber || '',
+        bankDetails: {
+          accountNumber: editData.bankDetails?.accountNumber || '',
+          ifscCode: editData.bankDetails?.ifscCode || '',
+          bankName: editData.bankDetails?.bankName || '',
+          accountHolderName: editData.bankDetails?.accountHolderName || ''
+        }
       });
     } else if (isOpen && !editData) {
-      // Reset form for new driver
+      // Reset form for new fleet owner
       setFormData({
         fullName: '',
+        companyName: '',
         contact: '',
         email: '',
         address: '',
-        licenseNumber: '',
-        licenseExpiry: '',
-        dateOfBirth: '',
-        joiningDate: new Date().toISOString().split('T')[0],
-        emergencyContact: {
-          name: '',
-          phone: '',
-          relation: ''
-        },
-        status: 'active'
+        panNumber: '',
+        gstNumber: '',
+        bankDetails: {
+          accountNumber: '',
+          ifscCode: '',
+          bankName: '',
+          accountHolderName: ''
+        }
       });
     }
   }, [isOpen, editData]);
@@ -70,12 +65,12 @@ export default function DriverFormModal({ isOpen, onClose, onSuccess, editData =
   const handleChange = (e) => {
     const { name, value } = e.target;
     
-    if (name.startsWith('emergency.')) {
+    if (name.startsWith('bank.')) {
       const field = name.split('.')[1];
       setFormData({
         ...formData,
-        emergencyContact: {
-          ...formData.emergencyContact,
+        bankDetails: {
+          ...formData.bankDetails,
           [field]: value
         }
       });
@@ -90,17 +85,17 @@ export default function DriverFormModal({ isOpen, onClose, onSuccess, editData =
 
     try {
       if (editData) {
-        await driverAPI.update(editData._id, formData);
-        toast.success('Driver updated successfully!');
+        await fleetOwnerAPI.update(editData._id, formData);
+        toast.success('Fleet Owner updated successfully!');
       } else {
-        await driverAPI.create(formData);
-        toast.success('Driver added successfully! Default password: 12345678');
+        await fleetOwnerAPI.create(formData);
+        toast.success('Fleet Owner added successfully! Default password: 12345678');
       }
       
       onSuccess();
       onClose();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to save driver');
+      toast.error(error.response?.data?.message || 'Failed to save fleet owner');
     } finally {
       setLoading(false);
     }
@@ -110,7 +105,7 @@ export default function DriverFormModal({ isOpen, onClose, onSuccess, editData =
     <Modal 
       isOpen={isOpen} 
       onClose={onClose} 
-      title={editData ? 'Edit Driver' : 'Add New Driver'}
+      title={editData ? 'Edit Fleet Owner' : 'Add New Fleet Owner'}
       size="lg"
     >
       <form onSubmit={handleSubmit}>
@@ -123,7 +118,7 @@ export default function DriverFormModal({ isOpen, onClose, onSuccess, editData =
                 Default password will be set to "12345678"
               </p>
               <p className="text-xs text-blue-600 mt-1">
-                Driver can change this password after first login
+                Fleet Owner can change this password after first login
               </p>
             </div>
           </div>
@@ -146,6 +141,18 @@ export default function DriverFormModal({ isOpen, onClose, onSuccess, editData =
                   className="input"
                   placeholder="Enter full name"
                   required
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="label">Company Name</label>
+                <input
+                  type="text"
+                  name="companyName"
+                  value={formData.companyName}
+                  onChange={handleChange}
+                  className="input"
+                  placeholder="Enter company name"
                 />
               </div>
 
@@ -172,7 +179,7 @@ export default function DriverFormModal({ isOpen, onClose, onSuccess, editData =
                   value={formData.email}
                   onChange={handleChange}
                   className="input"
-                  placeholder="driver@example.com"
+                  placeholder="owner@example.com"
                 />
               </div>
 
@@ -187,125 +194,90 @@ export default function DriverFormModal({ isOpen, onClose, onSuccess, editData =
                   placeholder="Enter full address"
                 ></textarea>
               </div>
-
-              <div>
-                <label className="label">Date of Birth</label>
-                <input
-                  type="date"
-                  name="dateOfBirth"
-                  value={formData.dateOfBirth}
-                  onChange={handleChange}
-                  className="input"
-                />
-              </div>
-
-              <div>
-                <label className="label">Joining Date</label>
-                <input
-                  type="date"
-                  name="joiningDate"
-                  value={formData.joiningDate}
-                  onChange={handleChange}
-                  className="input"
-                />
-              </div>
-
-              <div>
-                <label className="label">Status</label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleChange}
-                  className="input"
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="on_leave">On Leave</option>
-                  <option value="terminated">Terminated</option>
-                </select>
-              </div>
             </div>
           </div>
 
-          {/* License Information */}
+          {/* Business Information */}
           <div className="border-t pt-6">
-            <h3 className="text-lg font-semibold mb-4 text-gray-900">License Information</h3>
+            <h3 className="text-lg font-semibold mb-4 text-gray-900">Business Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="label">License Number</label>
+                <label className="label">PAN Number</label>
                 <input
                   type="text"
-                  name="licenseNumber"
-                  value={formData.licenseNumber}
+                  name="panNumber"
+                  value={formData.panNumber}
                   onChange={handleChange}
-                  className="input"
-                  placeholder="DL1234567890"
+                  className="input uppercase"
+                  placeholder="ABCDE1234F"
+                  maxLength="10"
                 />
               </div>
 
               <div>
-                <label className="label">License Expiry Date</label>
-                <input
-                  type="date"
-                  name="licenseExpiry"
-                  value={formData.licenseExpiry}
-                  onChange={handleChange}
-                  className="input"
-                />
-              </div>
-
-              <div>
-                <label className="label">Aadhaar Number</label>
+                <label className="label">GST Number</label>
                 <input
                   type="text"
-                  name="aadhaarNumber"
-                  value={formData.aadhaarNumber}
+                  name="gstNumber"
+                  value={formData.gstNumber}
                   onChange={handleChange}
-                  className="input"
-                  placeholder="1234 5678 9012"
-                  maxLength="12"
+                  className="input uppercase"
+                  placeholder="22AAAAA0000A1Z5"
+                  maxLength="15"
                 />
               </div>
             </div>
           </div>
 
-          {/* Emergency Contact */}
+          {/* Bank Details */}
           <div className="border-t pt-6">
-            <h3 className="text-lg font-semibold mb-4 text-gray-900">Emergency Contact</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900">Bank Details</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="label">Contact Name</label>
+                <label className="label">Account Holder Name</label>
                 <input
                   type="text"
-                  name="emergency.name"
-                  value={formData.emergencyContact.name}
+                  name="bank.accountHolderName"
+                  value={formData.bankDetails.accountHolderName}
                   onChange={handleChange}
                   className="input"
-                  placeholder="Contact person name"
+                  placeholder="Enter account holder name"
                 />
               </div>
 
               <div>
-                <label className="label">Contact Phone</label>
+                <label className="label">Account Number</label>
                 <input
                   type="text"
-                  name="emergency.phone"
-                  value={formData.emergencyContact.phone}
+                  name="bank.accountNumber"
+                  value={formData.bankDetails.accountNumber}
                   onChange={handleChange}
                   className="input"
-                  placeholder="+91 9876543210"
+                  placeholder="Enter account number"
                 />
               </div>
 
               <div>
-                <label className="label">Relation</label>
+                <label className="label">IFSC Code</label>
                 <input
                   type="text"
-                  name="emergency.relation"
-                  value={formData.emergencyContact.relation}
+                  name="bank.ifscCode"
+                  value={formData.bankDetails.ifscCode}
+                  onChange={handleChange}
+                  className="input uppercase"
+                  placeholder="SBIN0001234"
+                />
+              </div>
+
+              <div>
+                <label className="label">Bank Name</label>
+                <input
+                  type="text"
+                  name="bank.bankName"
+                  value={formData.bankDetails.bankName}
                   onChange={handleChange}
                   className="input"
-                  placeholder="Father, Brother, etc."
+                  placeholder="Enter bank name"
                 />
               </div>
             </div>
@@ -328,7 +300,7 @@ export default function DriverFormModal({ isOpen, onClose, onSuccess, editData =
             className="btn btn-primary flex items-center space-x-2"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            <span>{editData ? 'Update Driver' : 'Add Driver'}</span>
+            <span>{editData ? 'Update Fleet Owner' : 'Add Fleet Owner'}</span>
           </button>
         </div>
       </form>

@@ -46,9 +46,22 @@ export default function DriversPage() {
     setShowModal(true);
   };
 
-  const handleViewDriver = (driver) => {
-    setSelectedDriver(driver);
-    setShowViewModal(true);
+  const handleViewDriver = async (driver) => {
+    console.log('View button clicked for driver:', driver);
+    if (driver && driver._id) {
+      try {
+        // Fetch fresh driver data with all documents
+        const response = await driverAPI.getById(driver._id);
+        setSelectedDriver(response.data.data);
+        setShowViewModal(true);
+      } catch (error) {
+        console.error('Error loading driver details:', error);
+        toast.error('Failed to load driver details');
+      }
+    } else {
+      console.error('Invalid driver data:', driver);
+      toast.error('Unable to view driver details');
+    }
   };
 
   const handleDelete = async (id) => {
@@ -80,7 +93,8 @@ export default function DriversPage() {
 
   const getStatusBadgeColor = (status) => {
     const colors = {
-      active: 'bg-green-100 text-green-800',
+      available: 'bg-green-100 text-green-800',
+      on_trip: 'bg-blue-100 text-blue-800',
       inactive: 'bg-gray-100 text-gray-800',
       on_leave: 'bg-yellow-100 text-yellow-800',
       terminated: 'bg-red-100 text-red-800'
@@ -139,13 +153,27 @@ export default function DriversPage() {
         <div className="card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Active</p>
+              <p className="text-sm text-gray-600">Available</p>
               <p className="text-2xl font-bold text-green-600">
-                {drivers.filter(d => d.status === 'active').length}
+                {drivers.filter(d => d.status === 'available').length}
               </p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <span className="text-2xl">✅</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">On Trip</p>
+              <p className="text-2xl font-bold text-blue-600">
+                {drivers.filter(d => d.status === 'on_trip').length}
+              </p>
+            </div>
+            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+              <span className="text-2xl">🚛</span>
             </div>
           </div>
         </div>
@@ -203,7 +231,8 @@ export default function DriversPage() {
               className="input"
             >
               <option value="">All Status</option>
-              <option value="active">Active</option>
+              <option value="available">Available</option>
+              <option value="on_trip">On Trip</option>
               <option value="on_leave">On Leave</option>
               <option value="inactive">Inactive</option>
               <option value="terminated">Terminated</option>
@@ -247,7 +276,9 @@ export default function DriversPage() {
                 </tr>
               ) : (
                 filteredDrivers.map((driver) => (
-                  <tr key={driver._id} className="hover:bg-gray-50">
+                  <tr key={driver._id} className="hover:bg-gray-50"
+                    style={{ position: 'relative' }}
+                  >
                     <td className="px-6 py-4">
                       <div>
                         <div className="text-sm font-medium text-gray-900">
@@ -300,25 +331,46 @@ export default function DriversPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-3">
                         <button
-                          onClick={() => handleViewDriver(driver)}
-                          className="text-green-600 hover:text-green-900"
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('View clicked for:', driver.fullName);
+                            handleViewDriver(driver);
+                          }}
+                          className="inline-flex items-center justify-center w-8 h-8 text-green-600 hover:text-white hover:bg-green-600 rounded-lg transition-all duration-200 cursor-pointer"
                           title="View"
+                          style={{ pointerEvents: 'auto' }}
                         >
                           <Eye className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleEditDriver(driver)}
-                          className="text-blue-600 hover:text-blue-900"
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('Edit clicked for:', driver.fullName);
+                            handleEditDriver(driver);
+                          }}
+                          className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-white hover:bg-blue-600 rounded-lg transition-all duration-200 cursor-pointer"
                           title="Edit"
+                          style={{ pointerEvents: 'auto' }}
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(driver._id)}
-                          className="text-red-600 hover:text-red-900"
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('Delete clicked for:', driver.fullName);
+                            handleDelete(driver._id);
+                          }}
+                          className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-white hover:bg-red-600 rounded-lg transition-all duration-200 cursor-pointer"
                           title="Delete"
+                          style={{ pointerEvents: 'auto' }}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -348,11 +400,17 @@ export default function DriversPage() {
       />
 
       {/* Driver View Modal */}
-      <DriverViewModal
-        isOpen={showViewModal}
-        onClose={() => setShowViewModal(false)}
-        driver={selectedDriver}
-      />
+      {showViewModal && selectedDriver && (
+        <DriverViewModal
+          isOpen={showViewModal}
+          onClose={() => {
+            console.log('Closing driver view modal');
+            setShowViewModal(false);
+            setSelectedDriver(null);
+          }}
+          driver={selectedDriver}
+        />
+      )}
     </div>
   );
 }

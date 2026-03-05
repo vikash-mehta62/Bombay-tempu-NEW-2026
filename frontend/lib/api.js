@@ -50,6 +50,7 @@ export const dashboardAPI = {
 // Auth API
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
+  loginWithPhone: (credentials) => api.post('/auth/login-phone', credentials),
   register: (userData) => api.post('/auth/register', userData),
   getMe: () => api.get('/auth/me'),
   logout: () => api.post('/auth/logout'),
@@ -85,6 +86,10 @@ export const driverAPI = {
   update: (id, data) => api.put(`/drivers/${id}`, data),
   delete: (id) => api.delete(`/drivers/${id}`),
   getStats: () => api.get('/drivers/stats'),
+  uploadDocument: (id, formData) => api.post(`/drivers/${id}/upload-document`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  deleteDocument: (id, documentType) => api.delete(`/drivers/${id}/delete-document/${documentType}`),
 };
 
 // Client API
@@ -223,4 +228,12 @@ export const driverCalculationAPI = {
   getById: (id) => api.get(`/driver-calculations/${id}`),
   update: (id, data) => api.put(`/driver-calculations/${id}`, data),
   delete: (id) => api.delete(`/driver-calculations/${id}`),
+};
+
+// User API (for sub-admin management)
+export const userAPI = {
+  getAll: () => api.get('/auth/users'),
+  create: (data) => api.post('/auth/register', data),
+  update: (id, data) => api.put(`/auth/users/${id}`, data),
+  delete: (id) => api.delete(`/auth/users/${id}`),
 };

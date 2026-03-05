@@ -30,8 +30,12 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['admin', 'fleet_owner', 'driver', 'client', 'accountant', 'dispatcher'],
+    enum: ['admin', 'sub_admin', 'fleet_owner', 'driver', 'client', 'accountant', 'dispatcher'],
     default: 'driver'
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   },
   isActive: {
     type: Boolean,

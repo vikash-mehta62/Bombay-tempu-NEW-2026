@@ -35,13 +35,13 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// File upload middleware
-app.use(fileUpload({
-  useTempFiles: false,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
-  abortOnLimit: true,
-  createParentPath: true
-}));
+// File upload middleware - DISABLED: Using multer in individual routes instead
+// app.use(fileUpload({
+//   useTempFiles: false,
+//   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+//   abortOnLimit: true,
+//   createParentPath: true
+// }));
 
 // Serve static files
 app.use('/uploads', express.static('public/uploads'));

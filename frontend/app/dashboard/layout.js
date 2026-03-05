@@ -7,7 +7,7 @@ import Sidebar from '@/components/Sidebar';
 import Navbar from '@/components/Navbar';
 
 export default function DashboardLayout({ children }) {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -15,8 +15,13 @@ export default function DashboardLayout({ children }) {
   useEffect(() => {
     if (!loading && !isAuthenticated) {
       router.push('/login');
+    } else if (!loading && isAuthenticated && user) {
+      // Redirect non-admin users to user dashboard
+      if (user.role !== 'admin' && user.role !== 'sub_admin') {
+        router.push('/user-dashboard');
+      }
     }
-  }, [isAuthenticated, loading, router]);
+  }, [isAuthenticated, loading, user, router]);
 
   // Load collapsed state from localStorage
   useEffect(() => {

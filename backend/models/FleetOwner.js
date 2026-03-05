@@ -87,6 +87,12 @@ const fleetOwnerSchema = new mongoose.Schema({
 
 // Hash password before saving
 fleetOwnerSchema.pre('save', async function(next) {
+  // If password is not set, use default
+  if (!this.password) {
+    this.password = '12345678';
+  }
+  
+  // Only hash if password is modified
   if (!this.isModified('password')) {
     return next();
   }

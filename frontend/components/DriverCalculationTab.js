@@ -11,7 +11,7 @@ import { driverCalculationAPI } from '@/lib/api';
 import { toast } from 'sonner';
 import DriverCalculationForm from './DriverCalculationForm';
 
-export default function DriverCalculationTab({ driver, formatCurrency, formatDate }) {
+export default function DriverCalculationTab({ driver, formatCurrency, formatDate, isAdminView = false }) {
   const [loading, setLoading] = useState(true);
   const [calculations, setCalculations] = useState([]);
   const [showCalculationForm, setShowCalculationForm] = useState(false);
@@ -84,13 +84,15 @@ export default function DriverCalculationTab({ driver, formatCurrency, formatDat
           <h3 className="text-lg font-semibold text-gray-900">Driver Calculations</h3>
           <p className="text-sm text-gray-600">Multi-trip KM calculations for self-owned vehicles</p>
         </div>
-        <button
-          onClick={() => setShowCalculationForm(true)}
-          className="btn bg-blue-600 text-white hover:bg-blue-700 flex items-center space-x-2"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Calculation</span>
-        </button>
+        {isAdminView && (
+          <button
+            onClick={() => setShowCalculationForm(true)}
+            className="btn bg-blue-600 text-white hover:bg-blue-700 flex items-center space-x-2"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Calculation</span>
+          </button>
+        )}
       </div>
 
       {/* Calculation Form Modal */}
@@ -118,8 +120,10 @@ export default function DriverCalculationTab({ driver, formatCurrency, formatDat
             {calculations.map(calc => (
               <div 
                 key={calc._id} 
-                className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => handleEditCalculation(calc)}
+                className={`bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow ${
+                  isAdminView ? 'cursor-pointer' : ''
+                }`}
+                onClick={isAdminView ? () => handleEditCalculation(calc) : undefined}
               >
                 <div className="flex items-center justify-between mb-3">
                   <div>
@@ -135,15 +139,17 @@ export default function DriverCalculationTab({ driver, formatCurrency, formatDat
                       Created by: {calc.createdBy?.fullName || 'Unknown'}
                     </p>
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(calc._id);
-                    }}
-                    className="text-red-600 hover:text-red-800"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {isAdminView && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(calc._id);
+                      }}
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
                 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

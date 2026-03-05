@@ -381,7 +381,16 @@ export default function FleetOwnerViewModal({ fleetOwner, isOpen, onClose }) {
                           <FileText className="w-5 h-5 text-blue-600" />
                         </div>
                         <div>
-                          <h4 className="font-bold text-gray-900">{trip.tripNumber}</h4>
+                          <a 
+                            href={`/trip/${trip._id}`}
+                            className="font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              window.location.href = `/trip/${trip._id}`;
+                            }}
+                          >
+                            {trip.tripNumber}
+                          </a>
                           <p className="text-sm text-gray-600">{trip.vehicleId?.vehicleNumber}</p>
                         </div>
                       </div>
@@ -499,7 +508,18 @@ export default function FleetOwnerViewModal({ fleetOwner, isOpen, onClose }) {
                         
                         return (
                           <tr key={trip._id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 font-medium text-gray-900">{trip.tripNumber}</td>
+                            <td className="px-4 py-3 font-medium">
+                              <a 
+                                href={`/trip/${trip._id}`}
+                                className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  window.location.href = `/trip/${trip._id}`;
+                                }}
+                              >
+                                {trip.tripNumber}
+                              </a>
+                            </td>
                             <td className="px-4 py-3 text-gray-600">{trip.vehicleId?.vehicleNumber}</td>
                             <td className="px-4 py-3 text-gray-600">{formatDate(trip.loadDate)}</td>
                             <td className="px-4 py-3 text-right font-semibold text-purple-600">{formatCurrency(trip.podBalance)}</td>
@@ -575,7 +595,16 @@ export default function FleetOwnerViewModal({ fleetOwner, isOpen, onClose }) {
                         <tr key={trip._id} className="hover:bg-blue-50 transition-colors">
                           <td className="px-6 py-4 text-gray-700 font-semibold">{index + 1}</td>
                           <td className="px-6 py-4">
-                            <span className="font-bold text-blue-600 text-base">{trip.tripNumber}</span>
+                            <a 
+                              href={`/trip/${trip._id}`}
+                              className="font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer text-base"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                window.location.href = `/trip/${trip._id}`;
+                              }}
+                            >
+                              {trip.tripNumber}
+                            </a>
                           </td>
                           <td className="px-6 py-4">
                             <span className="font-bold text-gray-900 text-base">{trip.vehicleId?.vehicleNumber || 'N/A'}</span>
@@ -708,7 +737,16 @@ export default function FleetOwnerViewModal({ fleetOwner, isOpen, onClose }) {
                             {formatDate(advance.createdAt)}
                           </td>
                           <td className="px-6 py-4">
-                            <span className="font-bold text-blue-600 text-base">{advance.tripNumber}</span>
+                            <a 
+                              href={`/trip/${advance.tripId}`}
+                              className="font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer text-base"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                window.location.href = `/trip/${advance.tripId}`;
+                              }}
+                            >
+                              {advance.tripNumber}
+                            </a>
                           </td>
                           <td className="px-6 py-4">
                             <span className="font-bold text-gray-900 text-base">{advance.vehicleNumber}</span>

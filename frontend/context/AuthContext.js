@@ -40,9 +40,42 @@ export function AuthProvider({ children }) {
       localStorage.setItem('user', JSON.stringify(data));
       setUser(data);
       
-      router.push('/dashboard');
+      // Redirect based on role
+      if (data.role === 'admin' || data.role === 'sub_admin') {
+        router.push('/dashboard');
+      } else {
+        router.push('/user-dashboard');
+      }
+      
       return { success: true };
     } catch (error) {
+      console.error('Login error:', error);
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Login failed'
+      };
+    }
+  };
+
+  const loginWithPhone = async (credentials) => {
+    try {
+      const response = await authAPI.loginWithPhone(credentials);
+      const { token, data } = response.data;
+      
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(data));
+      setUser(data);
+      
+      // Redirect based on role
+      if (data.role === 'driver' || data.role === 'fleet_owner' || data.role === 'client') {
+        router.push('/user-dashboard');
+      } else {
+        router.push('/dashboard');
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Login error:', error);
       return {
         success: false,
         message: error.response?.data?.message || 'Login failed'
@@ -67,6 +100,7 @@ export function AuthProvider({ children }) {
     user,
     loading,
     login,
+    loginWithPhone,
     logout,
     isAuthenticated: !!user,
   };

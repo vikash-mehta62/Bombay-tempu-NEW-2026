@@ -18,11 +18,15 @@ import {
   TrendingUp,
   CheckCircle,
   Clock,
-  X
+  X,
+  Upload,
+  Trash2,
+  Eye
 } from 'lucide-react';
-import { tripAPI, tripAdvanceAPI } from '@/lib/api';
+import { tripAPI, tripAdvanceAPI, driverAPI } from '@/lib/api';
 import { toast } from 'sonner';
 import DriverCalculationTab from './DriverCalculationTab';
+import DriverDocumentUpload from './DriverDocumentUpload';
 
 // Trip History Tab Component
 function DriverTripHistoryTab({ driver, formatCurrency, formatDate }) {
@@ -99,30 +103,54 @@ function DriverTripHistoryTab({ driver, formatCurrency, formatDate }) {
             <p className="text-gray-500">No trips found</p>
           </div>
         ) : (
-          trips.map(trip => (
-            <div key={trip._id} className="p-4 bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-2">
-                <h5 className="font-bold text-gray-900">{trip.tripNumber}</h5>
-                <span className={`px-2 py-1 rounded text-xs font-medium ${
-                  trip.status === 'completed' ? 'bg-green-100 text-green-800' :
-                  trip.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
-                  {trip.status}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <p className="text-gray-600">From: {trip.from}</p>
-                  <p className="text-gray-600">To: {trip.to}</p>
+          trips.map(trip => {
+            // Get first client's route for display
+            const firstClient = trip.clients?.[0];
+            const fromCity = firstClient?.originCity?.cityName || 'N/A';
+            const toCity = firstClient?.destinationCity?.cityName || 'N/A';
+            
+            return (
+              <div key={trip._id} className="p-4 bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between mb-2">
+                  <a 
+                    href={`/trip/${trip._id}`}
+                    className="font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      window.location.href = `/trip/${trip._id}`;
+                    }}
+                  >
+                    {trip.tripNumber}
+                  </a>
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                    trip.status === 'completed' ? 'bg-green-100 text-green-800' :
+                    trip.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {trip.status}
+                  </span>
                 </div>
-                <div>
-                  <p className="text-gray-600">Date: {formatDate(trip.loadDate)}</p>
-                  <p className="text-gray-600">Vehicle: {trip.vehicleId?.registrationNumber}</p>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <p className="text-gray-600">
+                      <span className="font-medium">From:</span> {fromCity}
+                    </p>
+                    <p className="text-gray-600">
+                      <span className="font-medium">To:</span> {toCity}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">
+                      <span className="font-medium">Date:</span> {formatDate(trip.loadDate)}
+                    </p>
+                    <p className="text-gray-600">
+                      <span className="font-medium">Vehicle:</span> {trip.vehicleId?.vehicleNumber || 'N/A'}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
@@ -259,7 +287,16 @@ function DriverAdvancesTab({ driver, formatCurrency, formatDate }) {
             <div key={adv._id} className="p-4 bg-white border border-gray-200 rounded-lg">
               <div className="flex items-center justify-between mb-2">
                 <div>
-                  <h5 className="font-bold text-gray-900">{adv.tripNumber}</h5>
+                  <a 
+                    href={`/trip/${adv.tripId}`}
+                    className="font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      window.location.href = `/trip/${adv.tripId}`;
+                    }}
+                  >
+                    {adv.tripNumber}
+                  </a>
                   <p className="text-xs text-gray-600">{formatDate(adv.date)}</p>
                 </div>
                 <span className="text-lg font-bold text-green-600">
@@ -282,11 +319,31 @@ function DriverAdvancesTab({ driver, formatCurrency, formatDate }) {
   );
 }
 
-export default function DriverViewModal({ isOpen, onClose, driver }) {
+export default function DriverViewModal({ isOpen, onClose, driver, isAdminView = true }) {
   const [activeTab, setActiveTab] = useState('details');
   const [loading, setLoading] = useState(false);
+  const [driverData, setDriverData] = useState(driver);
+
+  // Update driverData when driver prop changes
+  useEffect(() => {
+    if (driver) {
+      setDriverData(driver);
+    }
+  }, [driver]);
+
+  // Reload driver data when documents are updated
+  const handleDocumentUpdate = async () => {
+    try {
+      if (driver?._id) {
+        const response = await driverAPI.getById(driver._id);
+        setDriverData(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error reloading driver:', error);
+    }
+  };
   
-  if (!driver) return null;
+  if (!driverData) return null;
 
   const formatCurrency = (amount) => {
     if (!amount) return '₹0';
@@ -310,7 +367,7 @@ export default function DriverViewModal({ isOpen, onClose, driver }) {
     <Modal 
       isOpen={isOpen} 
       onClose={onClose} 
-      title={`Driver Details - ${driver.fullName}`}
+      title={`Driver Details - ${driverData.fullName}`}
       size="xl"
     >
       {/* Tab Navigation */}
@@ -425,6 +482,19 @@ export default function DriverViewModal({ isOpen, onClose, driver }) {
               </div>
             </div>
 
+            {/* Documents Upload */}
+            <div>
+              <div className="flex items-center space-x-2 mb-4">
+                <FileText className="w-5 h-5 text-blue-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Documents</h3>
+              </div>
+              <DriverDocumentUpload 
+                driver={driverData} 
+                onUpdate={handleDocumentUpdate}
+                isAdminView={isAdminView}
+              />
+            </div>
+
             {/* Emergency Contact */}
             {driver.emergencyContact && (
               <div>
@@ -448,7 +518,7 @@ export default function DriverViewModal({ isOpen, onClose, driver }) {
                   <div>
                     <p className="text-xs text-gray-500">Relationship</p>
                     <p className="text-sm font-medium text-gray-900">
-                      {driver.emergencyContact.relationship || 'N/A'}
+                      {driverData.emergencyContact.relationship || 'N/A'}
                     </p>
                   </div>
                 </div>
@@ -459,17 +529,22 @@ export default function DriverViewModal({ isOpen, onClose, driver }) {
 
         {/* Trip History Tab */}
         {activeTab === 'trips' && (
-          <DriverTripHistoryTab driver={driver} formatCurrency={formatCurrency} formatDate={formatDate} />
+          <DriverTripHistoryTab driver={driverData} formatCurrency={formatCurrency} formatDate={formatDate} />
         )}
 
         {/* Advances Tab */}
         {activeTab === 'advances' && (
-          <DriverAdvancesTab driver={driver} formatCurrency={formatCurrency} formatDate={formatDate} />
+          <DriverAdvancesTab driver={driverData} formatCurrency={formatCurrency} formatDate={formatDate} />
         )}
 
         {/* Driver Calculation Tab */}
         {activeTab === 'calculation' && (
-          <DriverCalculationTab driver={driver} formatCurrency={formatCurrency} formatDate={formatDate} />
+          <DriverCalculationTab 
+            driver={driverData} 
+            formatCurrency={formatCurrency} 
+            formatDate={formatDate}
+            isAdminView={isAdminView}
+          />
         )}
       </div>
 

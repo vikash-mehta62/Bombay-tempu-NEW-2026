@@ -17,9 +17,11 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
-  Building2
+  Building2,
+  Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
 
 const menuItems = [
   {
@@ -73,9 +75,16 @@ const menuItems = [
     icon: BarChart3,
   },
   {
+    title: 'Sub-Admins',
+    href: '/dashboard/sub-admins',
+    icon: Shield,
+    adminOnly: true, // Only show to admin
+  },
+  {
     title: 'Activity Logs',
     href: '/dashboard/logs',
     icon: Activity,
+    hideForSubAdmin: true, // Hide for sub-admin
   },
   {
     title: 'Settings',
@@ -86,6 +95,7 @@ const menuItems = [
 
 export default function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }) {
   const pathname = usePathname();
+  const { user } = useAuth();
 
   const handleLinkClick = () => {
     // Close mobile menu when link is clicked
@@ -93,6 +103,13 @@ export default function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, set
       setIsMobileOpen(false);
     }
   };
+
+  // Filter menu items based on user role
+  const filteredMenuItems = menuItems.filter(item => {
+    if (item.adminOnly && user?.role !== 'admin') return false;
+    if (item.hideForSubAdmin && user?.role === 'sub_admin') return false;
+    return true;
+  });
 
   return (
     <>
@@ -145,7 +162,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, set
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {menuItems.map((item) => {
+          {filteredMenuItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
 

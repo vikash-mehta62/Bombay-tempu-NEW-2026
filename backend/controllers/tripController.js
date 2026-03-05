@@ -2,21 +2,27 @@ const Trip = require('../models/Trip');
 const ClientPOD = require('../models/ClientPOD');
 const { createActivityLog } = require('../utils/activityLogger');
 
-// Get all trips
+// Get all trips with pagination, search, and filters
 exports.getAllTrips = async (req, res) => {
   try {
-    const { status, search, startDate, endDate } = req.query;
+    const { 
+      status, 
+      search, 
+      startDate, 
+      endDate, 
+      page = 1, 
+      limit = 10,
+      showNoFixAmount // Filter for clientRate 1-10
+    } = req.query;
     
     let query = { isActive: true };
     
+    // Status filter
     if (status) {
       query.status = status;
     }
     
-    if (search) {
-      query.tripNumber = { $regex: search, $options: 'i' };
-    }
-    
+    // Date range filter
     if (startDate && endDate) {
       query.loadDate = {
         $gte: new Date(startDate),
@@ -24,10 +30,16 @@ exports.getAllTrips = async (req, res) => {
       };
     }
     
+    // Client No Fix Amount filter (clientRate between 1-10)
+    if (showNoFixAmount === 'true') {
+      query['clients.clientRate'] = { $gte: 1, $lte: 10 };
+    }
+    
     console.log('Fetching trips with query:', query);
     console.log('Requested by user:', req.user?.fullName, '(', req.user?.role, ')');
     
-    const trips = await Trip.find(query)
+    // Build the base query
+    let tripsQuery = Trip.find(query)
       .populate({
         path: 'vehicleId',
         select: 'vehicleNumber vehicleType brand model ownershipType',
@@ -40,15 +52,62 @@ exports.getAllTrips = async (req, res) => {
       .populate('clients.clientId', 'fullName companyName contact')
       .populate('clients.originCity', 'cityName state')
       .populate('clients.destinationCity', 'cityName state')
-      .sort({ loadDate: -1 });
+      .sort({ createdAt: -1 }); // Sort by creation time, newest first
     
-    console.log(`Found ${trips.length} trips`);
+    // Execute query to get all trips for search
+    let allTrips = await tripsQuery.exec();
+    
+    // Advanced search (trip number, client name, vehicle number, driver name, fleet owner name)
+    if (search && search.trim()) {
+      const searchLower = search.toLowerCase().trim();
+      allTrips = allTrips.filter(trip => {
+        // Search in trip number
+        if (trip.tripNumber?.toLowerCase().includes(searchLower)) return true;
+        
+        // Search in vehicle number
+        if (trip.vehicleId?.vehicleNumber?.toLowerCase().includes(searchLower)) return true;
+        
+        // Search in driver name
+        if (trip.driverId?.fullName?.toLowerCase().includes(searchLower)) return true;
+        
+        // Search in fleet owner name
+        if (trip.vehicleId?.fleetOwnerId?.fullName?.toLowerCase().includes(searchLower)) return true;
+        
+        // Search in client names
+        if (trip.clients?.some(c => 
+          c.clientId?.fullName?.toLowerCase().includes(searchLower) ||
+          c.clientId?.companyName?.toLowerCase().includes(searchLower)
+        )) return true;
+        
+        return false;
+      });
+    }
+    
+    // Calculate pagination
+    const totalTrips = allTrips.length;
+    const totalPages = Math.ceil(totalTrips / limit);
+    const currentPage = parseInt(page);
+    const skip = (currentPage - 1) * limit;
+    
+    // Apply pagination
+    const paginatedTrips = allTrips.slice(skip, skip + parseInt(limit));
+    
+    console.log(`Found ${totalTrips} trips, showing page ${currentPage} of ${totalPages}`);
     
     res.json({
       success: true,
-      data: trips
+      data: paginatedTrips,
+      pagination: {
+        currentPage,
+        totalPages,
+        totalTrips,
+        limit: parseInt(limit),
+        hasNextPage: currentPage < totalPages,
+        hasPrevPage: currentPage > 1
+      }
     });
   } catch (error) {
+    console.error('Error fetching trips:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',
@@ -99,6 +158,23 @@ exports.createTrip = async (req, res) => {
     const trip = new Trip(req.body);
     await trip.save();
     
+    // Update vehicle status to "on_trip"
+    const Vehicle = require('../models/Vehicle');
+    if (trip.vehicleId) {
+      await Vehicle.findByIdAndUpdate(trip.vehicleId, {
+        currentStatus: 'on_trip'
+      });
+    }
+    
+    // Update driver status to "on_trip"
+    const Driver = require('../models/Driver');
+    if (trip.driverId) {
+      await Driver.findByIdAndUpdate(trip.driverId, {
+        status: 'on_trip',
+        currentVehicle: trip.vehicleId
+      });
+    }
+    
     // Populate references with fleet owner
     await trip.populate({
       path: 'vehicleId',
@@ -132,7 +208,7 @@ exports.createTrip = async (req, res) => {
       if (req.user) {
         await createActivityLog({
           user: req.user,
-          action: `Created trip ${trip.tripNumber} with ${trip.clients.length} client(s) and auto-generated PODs`,
+          action: `Created trip ${trip.tripNumber} with ${trip.clients.length} client(s) and auto-generated PODs. Vehicle and driver marked as on_trip.`,
           actionType: 'CREATE',
           module: 'Trip',
           entityId: trip._id,
@@ -159,13 +235,66 @@ exports.createTrip = async (req, res) => {
 // Update trip
 exports.updateTrip = async (req, res) => {
   try {
-    // Get the old trip data to compare clients
+    // Get the old trip data to compare clients, vehicle, and driver
     const oldTrip = await Trip.findById(req.params.id);
     
     if (!oldTrip) {
       return res.status(404).json({
         success: false,
         message: 'Trip not found'
+      });
+    }
+    
+    // Store old vehicle and driver IDs
+    const oldVehicleId = oldTrip.vehicleId?.toString();
+    const oldDriverId = oldTrip.driverId?.toString();
+    const newVehicleId = req.body.vehicleId?.toString();
+    const newDriverId = req.body.driverId?.toString();
+    
+    const Vehicle = require('../models/Vehicle');
+    const Driver = require('../models/Driver');
+    
+    // If vehicle changed, release old vehicle and book new vehicle
+    if (oldVehicleId && newVehicleId && oldVehicleId !== newVehicleId) {
+      // Release old vehicle
+      await Vehicle.findByIdAndUpdate(oldVehicleId, {
+        currentStatus: 'available'
+      });
+      
+      // Book new vehicle
+      await Vehicle.findByIdAndUpdate(newVehicleId, {
+        currentStatus: 'on_trip'
+      });
+    }
+    
+    // If driver changed, release old driver and book new driver
+    if (oldDriverId && newDriverId && oldDriverId !== newDriverId) {
+      // Release old driver
+      await Driver.findByIdAndUpdate(oldDriverId, {
+        status: 'available',
+        currentVehicle: null
+      });
+      
+      // Book new driver
+      await Driver.findByIdAndUpdate(newDriverId, {
+        status: 'on_trip',
+        currentVehicle: newVehicleId
+      });
+    }
+    
+    // If driver was removed (self-owned to fleet-owned conversion)
+    if (oldDriverId && !newDriverId) {
+      await Driver.findByIdAndUpdate(oldDriverId, {
+        status: 'available',
+        currentVehicle: null
+      });
+    }
+    
+    // If driver was added (fleet-owned to self-owned conversion)
+    if (!oldDriverId && newDriverId) {
+      await Driver.findByIdAndUpdate(newDriverId, {
+        status: 'on_trip',
+        currentVehicle: newVehicleId
       });
     }
     
@@ -276,7 +405,7 @@ exports.updateTrip = async (req, res) => {
 // Delete trip (soft delete)
 exports.deleteTrip = async (req, res) => {
   try {
-    const trip = await Trip.findById(req.params.id);
+    const trip = await Trip.findById(req.params.id).populate('vehicleId driverId');
     
     if (!trip) {
       return res.status(404).json({
@@ -289,6 +418,23 @@ exports.deleteTrip = async (req, res) => {
     trip.isActive = false;
     trip.status = 'cancelled';
     await trip.save();
+    
+    // Update vehicle status to "available"
+    const Vehicle = require('../models/Vehicle');
+    if (trip.vehicleId) {
+      await Vehicle.findByIdAndUpdate(trip.vehicleId._id, {
+        currentStatus: 'available'
+      });
+    }
+    
+    // Update driver status to "available" and clear current vehicle
+    const Driver = require('../models/Driver');
+    if (trip.driverId) {
+      await Driver.findByIdAndUpdate(trip.driverId._id, {
+        status: 'available',
+        currentVehicle: null
+      });
+    }
     
     // Mark all related records as inactive
     const TripAdvance = require('../models/TripAdvance');
@@ -338,7 +484,7 @@ exports.deleteTrip = async (req, res) => {
     if (req.user) {
       await createActivityLog({
         user: req.user,
-        action: `Deleted trip ${trip.tripNumber} and deactivated all related records (advances, expenses, payments, PODs)`,
+        action: `Deleted trip ${trip.tripNumber} and deactivated all related records (advances, expenses, payments, PODs). Vehicle and driver marked as available.`,
         actionType: 'DELETE',
         module: 'trips',
         entityId: trip._id,
@@ -371,13 +517,112 @@ exports.updateTripStatus = async (req, res) => {
       req.params.id,
       { status },
       { new: true, runValidators: true }
-    );
+    ).populate('vehicleId driverId');
     
     if (!trip) {
       return res.status(404).json({
         success: false,
         message: 'Trip not found'
       });
+    }
+    
+    const Vehicle = require('../models/Vehicle');
+    const Driver = require('../models/Driver');
+    
+    // If trip status is "in_progress", ensure vehicle and driver are marked as on_trip
+    if (status === 'in_progress') {
+      // Update vehicle status to "on_trip"
+      if (trip.vehicleId) {
+        await Vehicle.findByIdAndUpdate(trip.vehicleId._id, {
+          currentStatus: 'on_trip'
+        });
+      }
+      
+      // Update driver status to "on_trip"
+      if (trip.driverId) {
+        await Driver.findByIdAndUpdate(trip.driverId._id, {
+          status: 'on_trip',
+          currentVehicle: trip.vehicleId._id
+        });
+      }
+      
+      // Log activity
+      if (req.user) {
+        await createActivityLog({
+          user: req.user,
+          action: `Started trip ${trip.tripNumber}. Vehicle and driver marked as on_trip.`,
+          actionType: 'UPDATE',
+          module: 'Trip',
+          entityId: trip._id,
+          entityType: 'Trip',
+          details: { tripNumber: trip.tripNumber, status: 'in_progress' },
+          req
+        });
+      }
+    }
+    
+    // If trip status is "completed", update vehicle and driver status to "available"
+    if (status === 'completed') {
+      // Update vehicle status to "available"
+      if (trip.vehicleId) {
+        await Vehicle.findByIdAndUpdate(trip.vehicleId._id, {
+          currentStatus: 'available'
+        });
+      }
+      
+      // Update driver status to "available" and clear current vehicle
+      if (trip.driverId) {
+        await Driver.findByIdAndUpdate(trip.driverId._id, {
+          status: 'available',
+          currentVehicle: null
+        });
+      }
+      
+      // Log activity
+      if (req.user) {
+        await createActivityLog({
+          user: req.user,
+          action: `Completed trip ${trip.tripNumber}. Vehicle and driver marked as available.`,
+          actionType: 'UPDATE',
+          module: 'Trip',
+          entityId: trip._id,
+          entityType: 'Trip',
+          details: { tripNumber: trip.tripNumber, status: 'completed' },
+          req
+        });
+      }
+    }
+    
+    // If trip status is "cancelled", update vehicle and driver status to "available"
+    if (status === 'cancelled') {
+      // Update vehicle status to "available"
+      if (trip.vehicleId) {
+        await Vehicle.findByIdAndUpdate(trip.vehicleId._id, {
+          currentStatus: 'available'
+        });
+      }
+      
+      // Update driver status to "available" and clear current vehicle
+      if (trip.driverId) {
+        await Driver.findByIdAndUpdate(trip.driverId._id, {
+          status: 'available',
+          currentVehicle: null
+        });
+      }
+      
+      // Log activity
+      if (req.user) {
+        await createActivityLog({
+          user: req.user,
+          action: `Cancelled trip ${trip.tripNumber}. Vehicle and driver marked as available.`,
+          actionType: 'UPDATE',
+          module: 'Trip',
+          entityId: trip._id,
+          entityType: 'Trip',
+          details: { tripNumber: trip.tripNumber, status: 'cancelled' },
+          req
+        });
+      }
     }
     
     res.json({
@@ -393,9 +638,19 @@ exports.updateTripStatus = async (req, res) => {
   }
 };
 
-// Get trip statistics
+// Get trip statistics (Overall stats for all trips)
 exports.getTripStats = async (req, res) => {
   try {
+    // Get all active trips
+    const allTrips = await Trip.find({ isActive: true });
+    
+    // Calculate overall stats
+    const totalTrips = allTrips.length;
+    const totalRevenue = allTrips.reduce((sum, trip) => sum + (trip.totalClientRevenue || 0), 0);
+    const totalProfit = allTrips.reduce((sum, trip) => sum + (trip.profitLoss || 0), 0);
+    const inProgressTrips = allTrips.filter(t => t.status === 'in_progress').length;
+    
+    // Stats by status
     const stats = await Trip.aggregate([
       { $match: { isActive: true } },
       {
@@ -408,16 +663,20 @@ exports.getTripStats = async (req, res) => {
       }
     ]);
     
-    const total = await Trip.countDocuments({ isActive: true });
-    
     res.json({
       success: true,
       data: {
-        total,
+        overall: {
+          totalTrips,
+          totalRevenue,
+          totalProfit,
+          inProgressTrips
+        },
         byStatus: stats
       }
     });
   } catch (error) {
+    console.error('Error fetching trip stats:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',

@@ -1,5 +1,8 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Driver = require('../models/Driver');
+const FleetOwner = require('../models/FleetOwner');
+const Client = require('../models/Client');
 
 /**
  * Protect routes - verify JWT token
@@ -25,23 +28,48 @@ exports.protect = async (req, res, next) => {
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      // Get user from token
-      req.user = await User.findById(decoded.id).select('-password');
+      // Try to find user in User model first (Admin/Sub-Admin)
+      let user = await User.findById(decoded.id).select('-password');
+      
+      // If not found in User, try Driver
+      if (!user) {
+        user = await Driver.findById(decoded.id).select('-password');
+        if (user) {
+          user.role = 'driver'; // Add role for consistency
+        }
+      }
+      
+      // If not found in Driver, try FleetOwner
+      if (!user) {
+        user = await FleetOwner.findById(decoded.id).select('-password');
+        if (user) {
+          user.role = 'fleet_owner'; // Add role for consistency
+        }
+      }
+      
+      // If not found in FleetOwner, try Client
+      if (!user) {
+        user = await Client.findById(decoded.id).select('-password');
+        if (user) {
+          user.role = 'client'; // Add role for consistency
+        }
+      }
 
-      if (!req.user) {
+      if (!user) {
         return res.status(401).json({
           success: false,
           message: 'User not found'
         });
       }
 
-      if (!req.user.isActive) {
+      if (user.isActive === false) {
         return res.status(401).json({
           success: false,
           message: 'User account is inactive'
         });
       }
 
+      req.user = user;
       next();
     } catch (error) {
       return res.status(401).json({

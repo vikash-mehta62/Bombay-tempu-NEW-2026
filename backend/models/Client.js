@@ -41,8 +41,7 @@ const clientSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
-    default: '12345678'
+    select: false // Don't return password by default
   },
   billingAddress: {
     type: String,
@@ -76,6 +75,12 @@ const clientSchema = new mongoose.Schema({
 
 // Hash password before saving
 clientSchema.pre('save', async function(next) {
+  // If password is not set, use default
+  if (!this.password) {
+    this.password = '12345678';
+  }
+  
+  // Only hash if password is modified
   if (!this.isModified('password')) return next();
   
   try {

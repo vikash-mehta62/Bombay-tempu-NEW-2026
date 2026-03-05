@@ -152,8 +152,12 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
         cityAPI.getAll()
       ]);
       
+      // Show all vehicles (no filtering)
       setVehicles(vehiclesRes.data.data);
+      
+      // Show all drivers (no filtering)
       setDrivers(driversRes.data.data);
+      
       setClients(clientsRes.data.data);
       setCities(citiesRes.data.data);
     } catch (error) {
@@ -362,6 +366,9 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
               <label className="label">
                 Vehicle <span className="text-red-500">*</span>
               </label>
+              <div className="text-xs text-gray-500 mb-1">
+                {vehicles.filter(v => v.currentStatus === 'available').length} available, {vehicles.filter(v => v.currentStatus === 'on_trip').length} on trip
+              </div>
               <input
                 type="text"
                 placeholder="Search vehicle..."
@@ -376,16 +383,25 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
                 required
               >
                 <option value="">Select Vehicle</option>
-                {filteredVehicles.map((vehicle) => (
-                  <option key={vehicle._id} value={vehicle._id}>
-                    {vehicle.vehicleNumber} - {vehicle.vehicleType} 
-                    {vehicle.ownershipType === 'self_owned' 
-                      ? ' (Own)' 
-                      : vehicle.fleetOwnerId 
-                        ? ` (${vehicle.fleetOwnerId.fullName})` 
-                        : ' (Fleet Owner)'}
-                  </option>
-                ))}
+                {filteredVehicles.map((vehicle) => {
+                  const isOnTrip = vehicle.currentStatus === 'on_trip';
+                  const isCurrentVehicle = editData && vehicle._id === editData.vehicleId?._id;
+                  return (
+                    <option 
+                      key={vehicle._id} 
+                      value={vehicle._id}
+                      disabled={isOnTrip && !isCurrentVehicle}
+                    >
+                      {vehicle.vehicleNumber} - {vehicle.vehicleType} 
+                      {vehicle.ownershipType === 'self_owned' 
+                        ? ' (Own)' 
+                        : vehicle.fleetOwnerId 
+                          ? ` (${vehicle.fleetOwnerId.fullName})` 
+                          : ' (Fleet Owner)'}
+                      {isOnTrip && !isCurrentVehicle ? ' - On Trip' : ''}
+                    </option>
+                  );
+                })}
               </select>
               {selectedVehicle && (
                 <div className="mt-2 text-xs text-gray-600">
@@ -403,6 +419,9 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
             {selectedVehicle?.ownershipType === 'self_owned' && (
               <div>
                 <label className="label">Driver</label>
+                <div className="text-xs text-gray-500 mb-1">
+                  {drivers.filter(d => d.status === 'available').length} available, {drivers.filter(d => d.status === 'on_trip').length} on trip
+                </div>
                 <input
                   type="text"
                   placeholder="Search driver..."
@@ -416,11 +435,20 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
                   className="input"
                 >
                   <option value="">Select Driver</option>
-                  {filteredDrivers.map((driver) => (
-                    <option key={driver._id} value={driver._id}>
-                      {driver.fullName} - {driver.contact}
-                    </option>
-                  ))}
+                  {filteredDrivers.map((driver) => {
+                    const isOnTrip = driver.status === 'on_trip' || driver.currentVehicle;
+                    const isCurrentDriver = editData && driver._id === editData.driverId?._id;
+                    return (
+                      <option 
+                        key={driver._id} 
+                        value={driver._id}
+                        disabled={isOnTrip && !isCurrentDriver}
+                      >
+                        {driver.fullName} - {driver.contact}
+                        {isOnTrip && !isCurrentDriver ? ' - On Trip' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             )}

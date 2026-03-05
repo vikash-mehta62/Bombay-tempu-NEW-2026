@@ -32,6 +32,26 @@ const driverSchema = new mongoose.Schema({
   licenseExpiry: {
     type: Date
   },
+  licenseDocument: {
+    url: String,
+    publicId: String,
+    uploadedAt: Date
+  },
+  aadhaarNumber: {
+    type: String,
+    trim: true,
+    sparse: true
+  },
+  aadhaarFrontDocument: {
+    url: String,
+    publicId: String,
+    uploadedAt: Date
+  },
+  aadhaarBackDocument: {
+    url: String,
+    publicId: String,
+    uploadedAt: Date
+  },
   dateOfBirth: {
     type: Date
   },
@@ -41,8 +61,7 @@ const driverSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
-    default: '12345678'
+    select: false // Don't return password by default
   },
   emergencyContact: {
     name: String,
@@ -51,8 +70,8 @@ const driverSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['active', 'inactive', 'on_leave', 'terminated'],
-    default: 'active'
+    enum: ['available', 'on_trip', 'on_leave', 'inactive', 'terminated'],
+    default: 'available'
   },
   currentVehicle: {
     type: mongoose.Schema.Types.ObjectId,
@@ -69,6 +88,12 @@ const driverSchema = new mongoose.Schema({
 
 // Hash password before saving
 driverSchema.pre('save', async function(next) {
+  // If password is not set, use default
+  if (!this.password) {
+    this.password = '12345678';
+  }
+  
+  // Only hash if password is modified
   if (!this.isModified('password')) return next();
   
   try {
