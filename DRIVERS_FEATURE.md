@@ -13,7 +13,7 @@ Complete driver management system with CRUD operations, status tracking, and lic
   - Contact Number (required, unique)
   - Email (optional)
   - Address
-  - Date of Birth
+  - Date of Birth 
   - Joining Date
 
 - **License Information**
