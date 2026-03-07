@@ -97,7 +97,7 @@ export default function LoginPage() {
           >
             Admin Login
           </button>
-          {/* <button
+          <button
             onClick={() => setLoginType('phone')}
             className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
               loginType === 'phone'
@@ -106,7 +106,7 @@ export default function LoginPage() {
             }`}
           >
             User Login
-          </button> */}
+          </button>
         </div>
 
         {/* Login Card */}

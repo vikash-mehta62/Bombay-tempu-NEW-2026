@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Modal from './Modal';
+import DriverFormModal from './DriverFormModal';
+import ClientFormModal from './ClientFormModal';
 import { tripAPI, vehicleAPI, driverAPI, clientAPI, cityAPI } from '@/lib/api';
 import { toast } from 'sonner';
 import { Loader2, Plus, Search, X } from 'lucide-react';
@@ -20,12 +22,21 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
   const [originSearch, setOriginSearch] = useState([]);
   const [destinationSearch, setDestinationSearch] = useState([]);
   
-  // Add new modals
-  const [showAddVehicle, setShowAddVehicle] = useState(false);
+  // Dropdown visibility states
+  const [showVehicleDropdown, setShowVehicleDropdown] = useState(false);
+  const [showDriverDropdown, setShowDriverDropdown] = useState(false);
   const [showAddDriver, setShowAddDriver] = useState(false);
   const [showAddClient, setShowAddClient] = useState([]);
   const [showAddOrigin, setShowAddOrigin] = useState([]);
   const [showAddDestination, setShowAddDestination] = useState([]);
+  
+  // Modal states for adding new entities
+  const [showDriverFormModal, setShowDriverFormModal] = useState(false);
+  const [showClientFormModal, setShowClientFormModal] = useState(false);
+  const [showCityFormModal, setShowCityFormModal] = useState(false);
+  const [currentClientIndex, setCurrentClientIndex] = useState(null);
+  const [currentCityType, setCurrentCityType] = useState(null); // 'origin' or 'destination'
+  const [currentCityIndex, setCurrentCityIndex] = useState(null);
   
   // New entity forms
   const [newCity, setNewCity] = useState({ cityName: '', state: '', pincode: '' });
@@ -208,7 +219,7 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
     setFormData({ ...formData, clients: newClients });
   };
 
-  const handleAddNewCity = async (type, index = null) => {
+  const handleAddNewCity = async () => {
     if (!newCity.cityName || !newCity.state) {
       toast.error('City name and state are required');
       return;
@@ -223,24 +234,62 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
       setCities(citiesRes.data.data);
       
       // Select the newly created city
-      if (type === 'origin' && index !== null) {
-        handleClientChange(index, 'originCity', response.data.data._id);
-        const newShowAddOrigin = [...showAddOrigin];
-        newShowAddOrigin[index] = false;
-        setShowAddOrigin(newShowAddOrigin);
-      } else if (type === 'destination' && index !== null) {
-        handleClientChange(index, 'destinationCity', response.data.data._id);
-        const newShowAddDestination = [...showAddDestination];
-        newShowAddDestination[index] = false;
-        setShowAddDestination(newShowAddDestination);
+      if (currentCityType === 'origin' && currentCityIndex !== null) {
+        handleClientChange(currentCityIndex, 'originCity', response.data.data._id);
+        const newSearch = [...originSearch];
+        newSearch[currentCityIndex] = `${response.data.data.cityName}, ${response.data.data.state}`;
+        setOriginSearch(newSearch);
+      } else if (currentCityType === 'destination' && currentCityIndex !== null) {
+        handleClientChange(currentCityIndex, 'destinationCity', response.data.data._id);
+        const newSearch = [...destinationSearch];
+        newSearch[currentCityIndex] = `${response.data.data.cityName}, ${response.data.data.state}`;
+        setDestinationSearch(newSearch);
       }
       
-      // Reset form
+      // Reset form and close modal
       setNewCity({ cityName: '', state: '', pincode: '' });
+      setShowCityFormModal(false);
+      setCurrentCityType(null);
+      setCurrentCityIndex(null);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to add city');
     }
   };
+
+  const handleDriverSuccess = async () => {
+    // Reload drivers
+    const driversRes = await driverAPI.getAll();
+    setDrivers(driversRes.data.data);
+    setShowDriverFormModal(false);
+  };
+
+  const handleClientSuccess = async () => {
+    // Reload clients
+    const clientsRes = await clientAPI.getAll();
+    setClients(clientsRes.data.data);
+    setShowClientFormModal(false);
+  };
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Check if click is outside any dropdown
+      const isOutsideDropdown = !event.target.closest('.dropdown-container');
+      
+      if (isOutsideDropdown) {
+        setShowVehicleDropdown(false);
+        setShowDriverDropdown(false);
+        setShowAddClient(showAddClient.map(() => false));
+        setShowAddOrigin(showAddOrigin.map(() => false));
+        setShowAddDestination(showAddDestination.map(() => false));
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isOpen, showAddClient, showAddOrigin, showAddDestination]);
 
   const calculateProfitLoss = () => {
     const totalRevenue = formData.clients.reduce((sum, client) => 
@@ -339,10 +388,51 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
     );
   };
 
-  const getFilteredCities = (searchTerm) => {
+  const getFilteredOriginCities = (index) => {
+    const searchTerm = originSearch[index] || '';
+    const currentClient = formData.clients[index];
+    
+    // Get all selected cities (origin and destination) from all clients
+    const selectedCities = formData.clients.reduce((acc, client, idx) => {
+      // For current client, only exclude destination
+      if (idx === index) {
+        if (client.destinationCity) acc.push(client.destinationCity);
+      } else {
+        // For other clients, exclude both origin and destination
+        if (client.originCity) acc.push(client.originCity);
+        if (client.destinationCity) acc.push(client.destinationCity);
+      }
+      return acc;
+    }, []);
+    
     return cities.filter(c =>
-      c.cityName.toLowerCase().includes((searchTerm || '').toLowerCase()) ||
-      c.state.toLowerCase().includes((searchTerm || '').toLowerCase())
+      (c.cityName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+       c.state.toLowerCase().includes(searchTerm.toLowerCase())) &&
+      !selectedCities.includes(c._id)
+    );
+  };
+
+  const getFilteredDestinationCities = (index) => {
+    const searchTerm = destinationSearch[index] || '';
+    const currentClient = formData.clients[index];
+    
+    // Get all selected cities (origin and destination) from all clients
+    const selectedCities = formData.clients.reduce((acc, client, idx) => {
+      // For current client, only exclude origin
+      if (idx === index) {
+        if (client.originCity) acc.push(client.originCity);
+      } else {
+        // For other clients, exclude both origin and destination
+        if (client.originCity) acc.push(client.originCity);
+        if (client.destinationCity) acc.push(client.destinationCity);
+      }
+      return acc;
+    }, []);
+    
+    return cities.filter(c =>
+      (c.cityName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+       c.state.toLowerCase().includes(searchTerm.toLowerCase())) &&
+      !selectedCities.includes(c._id)
     );
   };
 
@@ -369,40 +459,54 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
               <div className="text-xs text-gray-500 mb-1">
                 {vehicles.filter(v => v.currentStatus === 'available').length} available, {vehicles.filter(v => v.currentStatus === 'on_trip').length} on trip
               </div>
-              <input
-                type="text"
-                placeholder="Search vehicle..."
-                value={vehicleSearch}
-                onChange={(e) => setVehicleSearch(e.target.value)}
-                className="input mb-2"
-              />
-              <select
-                value={formData.vehicleId}
-                onChange={(e) => handleVehicleChange(e.target.value)}
-                className="input"
-                required
-              >
-                <option value="">Select Vehicle</option>
-                {filteredVehicles.map((vehicle) => {
-                  const isOnTrip = vehicle.currentStatus === 'on_trip';
-                  const isCurrentVehicle = editData && vehicle._id === editData.vehicleId?._id;
-                  return (
-                    <option 
-                      key={vehicle._id} 
-                      value={vehicle._id}
-                      disabled={isOnTrip && !isCurrentVehicle}
-                    >
-                      {vehicle.vehicleNumber} - {vehicle.vehicleType} 
-                      {vehicle.ownershipType === 'self_owned' 
-                        ? ' (Own)' 
-                        : vehicle.fleetOwnerId 
-                          ? ` (${vehicle.fleetOwnerId.fullName})` 
-                          : ' (Fleet Owner)'}
-                      {isOnTrip && !isCurrentVehicle ? ' - On Trip' : ''}
-                    </option>
-                  );
-                })}
-              </select>
+              <div className="relative dropdown-container">
+                <input
+                  type="text"
+                  placeholder="Search and select vehicle..."
+                  value={vehicleSearch}
+                  onChange={(e) => setVehicleSearch(e.target.value)}
+                  onFocus={() => setShowVehicleDropdown(true)}
+                  className="input"
+                />
+                {showVehicleDropdown && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {filteredVehicles.length > 0 ? (
+                      filteredVehicles.map((vehicle) => {
+                        const isOnTrip = vehicle.currentStatus === 'on_trip';
+                        const isCurrentVehicle = editData && vehicle._id === editData.vehicleId?._id;
+                        const isDisabled = isOnTrip && !isCurrentVehicle;
+                        return (
+                          <div
+                            key={vehicle._id}
+                            onClick={() => {
+                              if (!isDisabled) {
+                                handleVehicleChange(vehicle._id);
+                                setVehicleSearch(vehicle.vehicleNumber);
+                                setShowVehicleDropdown(false);
+                              }
+                            }}
+                            className={`px-4 py-2 cursor-pointer hover:bg-blue-50 ${
+                              isDisabled ? 'opacity-50 cursor-not-allowed' : ''
+                            } ${formData.vehicleId === vehicle._id ? 'bg-blue-100' : ''}`}
+                          >
+                            <div className="font-medium">{vehicle.vehicleNumber} - {vehicle.vehicleType}</div>
+                            <div className="text-xs text-gray-600">
+                              {vehicle.ownershipType === 'self_owned' 
+                                ? 'Own Vehicle' 
+                                : vehicle.fleetOwnerId 
+                                  ? `Fleet: ${vehicle.fleetOwnerId.fullName}` 
+                                  : 'Fleet Owner'}
+                              {isOnTrip && !isCurrentVehicle ? ' - On Trip' : ''}
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="px-4 py-2 text-gray-500 text-sm">No vehicles found</div>
+                    )}
+                  </div>
+                )}
+              </div>
               {selectedVehicle && (
                 <div className="mt-2 text-xs text-gray-600">
                   <span className="font-medium capitalize">
@@ -422,34 +526,60 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
                 <div className="text-xs text-gray-500 mb-1">
                   {drivers.filter(d => d.status === 'available').length} available, {drivers.filter(d => d.status === 'on_trip').length} on trip
                 </div>
-                <input
-                  type="text"
-                  placeholder="Search driver..."
-                  value={driverSearch}
-                  onChange={(e) => setDriverSearch(e.target.value)}
-                  className="input mb-2"
-                />
-                <select
-                  value={formData.driverId}
-                  onChange={(e) => setFormData({ ...formData, driverId: e.target.value })}
-                  className="input"
-                >
-                  <option value="">Select Driver</option>
-                  {filteredDrivers.map((driver) => {
-                    const isOnTrip = driver.status === 'on_trip' || driver.currentVehicle;
-                    const isCurrentDriver = editData && driver._id === editData.driverId?._id;
-                    return (
-                      <option 
-                        key={driver._id} 
-                        value={driver._id}
-                        disabled={isOnTrip && !isCurrentDriver}
+                <div className="relative dropdown-container">
+                  <input
+                    type="text"
+                    placeholder="Search and select driver..."
+                    value={driverSearch}
+                    onChange={(e) => setDriverSearch(e.target.value)}
+                    onFocus={() => setShowDriverDropdown(true)}
+                    className="input"
+                  />
+                  {showDriverDropdown && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      <div
+                        onClick={() => {
+                          setShowAddDriver(true);
+                          setShowDriverDropdown(false);
+                        }}
+                        className="px-4 py-2 cursor-pointer hover:bg-green-50 border-b border-gray-200 text-green-600 font-medium flex items-center space-x-2"
                       >
-                        {driver.fullName} - {driver.contact}
-                        {isOnTrip && !isCurrentDriver ? ' - On Trip' : ''}
-                      </option>
-                    );
-                  })}
-                </select>
+                        <Plus className="w-4 h-4" />
+                        <span>Add New Driver</span>
+                      </div>
+                      {filteredDrivers.length > 0 ? (
+                        filteredDrivers.map((driver) => {
+                          const isOnTrip = driver.status === 'on_trip' || driver.currentVehicle;
+                          const isCurrentDriver = editData && driver._id === editData.driverId?._id;
+                          const isDisabled = isOnTrip && !isCurrentDriver;
+                          return (
+                            <div
+                              key={driver._id}
+                              onClick={() => {
+                                if (!isDisabled) {
+                                  setFormData({ ...formData, driverId: driver._id });
+                                  setDriverSearch(driver.fullName);
+                                  setShowDriverDropdown(false);
+                                }
+                              }}
+                              className={`px-4 py-2 cursor-pointer hover:bg-blue-50 ${
+                                isDisabled ? 'opacity-50 cursor-not-allowed' : ''
+                              } ${formData.driverId === driver._id ? 'bg-blue-100' : ''}`}
+                            >
+                              <div className="font-medium">{driver.fullName}</div>
+                              <div className="text-xs text-gray-600">
+                                {driver.contact}
+                                {isOnTrip && !isCurrentDriver ? ' - On Trip' : ''}
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="px-4 py-2 text-gray-500 text-sm">No drivers found</div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -506,30 +636,67 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
                   <label className="label">
                     Client <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    placeholder="Search client..."
-                    value={clientSearch[index] || ''}
-                    onChange={(e) => {
-                      const newSearch = [...clientSearch];
-                      newSearch[index] = e.target.value;
-                      setClientSearch(newSearch);
-                    }}
-                    className="input mb-2"
-                  />
-                  <select
-                    value={client.clientId}
-                    onChange={(e) => handleClientChange(index, 'clientId', e.target.value)}
-                    className="input"
-                    required
-                  >
-                    <option value="">Select Client</option>
-                    {getFilteredClients(index).map((c) => (
-                      <option key={c._id} value={c._id}>
-                        {c.fullName} {c.companyName && `- ${c.companyName}`}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative dropdown-container">
+                    <input
+                      type="text"
+                      placeholder="Search and select client..."
+                      value={clientSearch[index] || ''}
+                      onChange={(e) => {
+                        const newSearch = [...clientSearch];
+                        newSearch[index] = e.target.value;
+                        setClientSearch(newSearch);
+                      }}
+                      onFocus={() => {
+                        const newShow = [...showAddClient];
+                        newShow[index] = true;
+                        setShowAddClient(newShow);
+                      }}
+                      className="input"
+                    />
+                    {showAddClient[index] && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        <div
+                          onClick={() => {
+                            setShowClientFormModal(true);
+                            setCurrentClientIndex(index);
+                            const newShow = [...showAddClient];
+                            newShow[index] = false;
+                            setShowAddClient(newShow);
+                          }}
+                          className="px-4 py-2 cursor-pointer hover:bg-green-50 border-b border-gray-200 text-green-600 font-medium flex items-center space-x-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>Add New Client</span>
+                        </div>
+                        {getFilteredClients(index).length > 0 ? (
+                          getFilteredClients(index).map((c) => (
+                            <div
+                              key={c._id}
+                              onClick={() => {
+                                handleClientChange(index, 'clientId', c._id);
+                                const newSearch = [...clientSearch];
+                                newSearch[index] = c.fullName;
+                                setClientSearch(newSearch);
+                                const newShow = [...showAddClient];
+                                newShow[index] = false;
+                                setShowAddClient(newShow);
+                              }}
+                              className={`px-4 py-2 cursor-pointer hover:bg-blue-50 ${
+                                client.clientId === c._id ? 'bg-blue-100' : ''
+                              }`}
+                            >
+                              <div className="font-medium">{c.fullName}</div>
+                              {c.companyName && (
+                                <div className="text-xs text-gray-600">{c.companyName}</div>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="px-4 py-2 text-gray-500 text-sm">No clients found</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Origin City */}
@@ -537,74 +704,65 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
                   <label className="label">
                     Origin (Pickup) <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    placeholder="Search city..."
-                    value={originSearch[index] || ''}
-                    onChange={(e) => {
-                      const newSearch = [...originSearch];
-                      newSearch[index] = e.target.value;
-                      setOriginSearch(newSearch);
-                    }}
-                    className="input mb-2"
-                  />
-                  <select
-                    value={client.originCity}
-                    onChange={(e) => handleClientChange(index, 'originCity', e.target.value)}
-                    className="input mb-2"
-                    required
-                  >
-                    <option value="">Select City</option>
-                    {getFilteredCities(originSearch[index]).map((city) => (
-                      <option key={city._id} value={city._id}>
-                        {city.cityName}, {city.state}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newShow = [...showAddOrigin];
-                      newShow[index] = !newShow[index];
-                      setShowAddOrigin(newShow);
-                    }}
-                    className="text-sm text-blue-600 hover:text-blue-700"
-                  >
-                    {showAddOrigin[index] ? '− Cancel' : '+ Add New City'}
-                  </button>
-                  
-                  {showAddOrigin[index] && (
-                    <div className="mt-2 p-3 bg-white border rounded space-y-2">
-                      <input
-                        type="text"
-                        placeholder="City Name"
-                        value={newCity.cityName}
-                        onChange={(e) => setNewCity({...newCity, cityName: e.target.value})}
-                        className="input text-sm"
-                      />
-                      <input
-                        type="text"
-                        placeholder="State"
-                        value={newCity.state}
-                        onChange={(e) => setNewCity({...newCity, state: e.target.value})}
-                        className="input text-sm"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Pincode (optional)"
-                        value={newCity.pincode}
-                        onChange={(e) => setNewCity({...newCity, pincode: e.target.value})}
-                        className="input text-sm"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleAddNewCity('origin', index)}
-                        className="btn btn-primary text-sm w-full"
-                      >
-                        Save City
-                      </button>
-                    </div>
-                  )}
+                  <div className="relative dropdown-container">
+                    <input
+                      type="text"
+                      placeholder="Search and select origin city..."
+                      value={originSearch[index] || ''}
+                      onChange={(e) => {
+                        const newSearch = [...originSearch];
+                        newSearch[index] = e.target.value;
+                        setOriginSearch(newSearch);
+                      }}
+                      onFocus={() => {
+                        const newShow = [...showAddOrigin];
+                        newShow[index] = true;
+                        setShowAddOrigin(newShow);
+                      }}
+                      className="input"
+                    />
+                    {showAddOrigin[index] && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        <div
+                          onClick={() => {
+                            setShowCityFormModal(true);
+                            setCurrentCityType('origin');
+                            setCurrentCityIndex(index);
+                            const newShow = [...showAddOrigin];
+                            newShow[index] = false;
+                            setShowAddOrigin(newShow);
+                          }}
+                          className="px-4 py-2 cursor-pointer hover:bg-green-50 border-b border-gray-200 text-green-600 font-medium flex items-center space-x-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>Add New City</span>
+                        </div>
+                        {getFilteredOriginCities(index).length > 0 ? (
+                          getFilteredOriginCities(index).map((city) => (
+                            <div
+                              key={city._id}
+                              onClick={() => {
+                                handleClientChange(index, 'originCity', city._id);
+                                const newSearch = [...originSearch];
+                                newSearch[index] = `${city.cityName}, ${city.state}`;
+                                setOriginSearch(newSearch);
+                                const newShow = [...showAddOrigin];
+                                newShow[index] = false;
+                                setShowAddOrigin(newShow);
+                              }}
+                              className={`px-4 py-2 cursor-pointer hover:bg-blue-50 ${
+                                client.originCity === city._id ? 'bg-blue-100' : ''
+                              }`}
+                            >
+                              <div className="font-medium">{city.cityName}, {city.state}</div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="px-4 py-2 text-gray-500 text-sm">No cities found</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Destination City */}
@@ -612,74 +770,65 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
                   <label className="label">
                     Destination (Drop-off) <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    placeholder="Search city..."
-                    value={destinationSearch[index] || ''}
-                    onChange={(e) => {
-                      const newSearch = [...destinationSearch];
-                      newSearch[index] = e.target.value;
-                      setDestinationSearch(newSearch);
-                    }}
-                    className="input mb-2"
-                  />
-                  <select
-                    value={client.destinationCity}
-                    onChange={(e) => handleClientChange(index, 'destinationCity', e.target.value)}
-                    className="input mb-2"
-                    required
-                  >
-                    <option value="">Select City</option>
-                    {getFilteredCities(destinationSearch[index]).map((city) => (
-                      <option key={city._id} value={city._id}>
-                        {city.cityName}, {city.state}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newShow = [...showAddDestination];
-                      newShow[index] = !newShow[index];
-                      setShowAddDestination(newShow);
-                    }}
-                    className="text-sm text-blue-600 hover:text-blue-700"
-                  >
-                    {showAddDestination[index] ? '− Cancel' : '+ Add New City'}
-                  </button>
-                  
-                  {showAddDestination[index] && (
-                    <div className="mt-2 p-3 bg-white border rounded space-y-2">
-                      <input
-                        type="text"
-                        placeholder="City Name"
-                        value={newCity.cityName}
-                        onChange={(e) => setNewCity({...newCity, cityName: e.target.value})}
-                        className="input text-sm"
-                      />
-                      <input
-                        type="text"
-                        placeholder="State"
-                        value={newCity.state}
-                        onChange={(e) => setNewCity({...newCity, state: e.target.value})}
-                        className="input text-sm"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Pincode (optional)"
-                        value={newCity.pincode}
-                        onChange={(e) => setNewCity({...newCity, pincode: e.target.value})}
-                        className="input text-sm"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleAddNewCity('destination', index)}
-                        className="btn btn-primary text-sm w-full"
-                      >
-                        Save City
-                      </button>
-                    </div>
-                  )}
+                  <div className="relative dropdown-container">
+                    <input
+                      type="text"
+                      placeholder="Search and select destination city..."
+                      value={destinationSearch[index] || ''}
+                      onChange={(e) => {
+                        const newSearch = [...destinationSearch];
+                        newSearch[index] = e.target.value;
+                        setDestinationSearch(newSearch);
+                      }}
+                      onFocus={() => {
+                        const newShow = [...showAddDestination];
+                        newShow[index] = true;
+                        setShowAddDestination(newShow);
+                      }}
+                      className="input"
+                    />
+                    {showAddDestination[index] && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        <div
+                          onClick={() => {
+                            setShowCityFormModal(true);
+                            setCurrentCityType('destination');
+                            setCurrentCityIndex(index);
+                            const newShow = [...showAddDestination];
+                            newShow[index] = false;
+                            setShowAddDestination(newShow);
+                          }}
+                          className="px-4 py-2 cursor-pointer hover:bg-green-50 border-b border-gray-200 text-green-600 font-medium flex items-center space-x-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>Add New City</span>
+                        </div>
+                        {getFilteredDestinationCities(index).length > 0 ? (
+                          getFilteredDestinationCities(index).map((city) => (
+                            <div
+                              key={city._id}
+                              onClick={() => {
+                                handleClientChange(index, 'destinationCity', city._id);
+                                const newSearch = [...destinationSearch];
+                                newSearch[index] = `${city.cityName}, ${city.state}`;
+                                setDestinationSearch(newSearch);
+                                const newShow = [...showAddDestination];
+                                newShow[index] = false;
+                                setShowAddDestination(newShow);
+                              }}
+                              className={`px-4 py-2 cursor-pointer hover:bg-blue-50 ${
+                                client.destinationCity === city._id ? 'bg-blue-100' : ''
+                              }`}
+                            >
+                              <div className="font-medium">{city.cityName}, {city.state}</div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="px-4 py-2 text-gray-500 text-sm">No cities found</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Client Rate */}
@@ -979,6 +1128,84 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
           </button>
         </div>
       </form>
+
+      {/* Driver Form Modal */}
+      <DriverFormModal
+        isOpen={showDriverFormModal}
+        onClose={() => setShowDriverFormModal(false)}
+        onSuccess={handleDriverSuccess}
+      />
+
+      {/* Client Form Modal */}
+      <ClientFormModal
+        isOpen={showClientFormModal}
+        onClose={() => setShowClientFormModal(false)}
+        onSuccess={handleClientSuccess}
+      />
+
+      {/* City Form Modal */}
+      {showCityFormModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Add New City</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="label">
+                  City Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter city name"
+                  value={newCity.cityName}
+                  onChange={(e) => setNewCity({...newCity, cityName: e.target.value})}
+                  className="input"
+                />
+              </div>
+              <div>
+                <label className="label">
+                  State <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter state"
+                  value={newCity.state}
+                  onChange={(e) => setNewCity({...newCity, state: e.target.value})}
+                  className="input"
+                />
+              </div>
+              <div>
+                <label className="label">Pincode (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="Enter pincode"
+                  value={newCity.pincode}
+                  onChange={(e) => setNewCity({...newCity, pincode: e.target.value})}
+                  className="input"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCityFormModal(false);
+                  setNewCity({ cityName: '', state: '', pincode: '' });
+                }}
+                className="btn btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAddNewCity}
+                className="btn btn-primary"
+              >
+                Add City
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Modal>
   );
 }
