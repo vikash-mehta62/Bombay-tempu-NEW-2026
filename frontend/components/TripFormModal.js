@@ -25,7 +25,6 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
   // Dropdown visibility states
   const [showVehicleDropdown, setShowVehicleDropdown] = useState(false);
   const [showDriverDropdown, setShowDriverDropdown] = useState(false);
-  const [showAddDriver, setShowAddDriver] = useState(false);
   const [showAddClient, setShowAddClient] = useState([]);
   const [showAddOrigin, setShowAddOrigin] = useState([]);
   const [showAddDestination, setShowAddDestination] = useState([]);
@@ -539,7 +538,7 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
                     <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                       <div
                         onClick={() => {
-                          setShowAddDriver(true);
+                          setShowDriverFormModal(true);
                           setShowDriverDropdown(false);
                         }}
                         className="px-4 py-2 cursor-pointer hover:bg-green-50 border-b border-gray-200 text-green-600 font-medium flex items-center space-x-2"
@@ -592,20 +591,6 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
                 type="datetime-local"
                 value={formData.tripDateTime}
                 onChange={(e) => setFormData({ ...formData, tripDateTime: e.target.value })}
-                className="input"
-                required
-              />
-            </div>
-
-            {/* Load Date */}
-            <div>
-              <label className="label">
-                Load Date <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                value={formData.loadDate}
-                onChange={(e) => setFormData({ ...formData, loadDate: e.target.value })}
                 className="input"
                 required
               />
