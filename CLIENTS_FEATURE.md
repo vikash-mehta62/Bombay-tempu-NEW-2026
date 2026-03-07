@@ -15,7 +15,7 @@ Complete client management system with CRUD operations, business information tra
   - Email (optional)
   - Address
   - Client Type (individual/company)
-
+ 
 - **Business Information**
   - GST Number (unique, uppercase)
   - PAN Number (unique, uppercase)
