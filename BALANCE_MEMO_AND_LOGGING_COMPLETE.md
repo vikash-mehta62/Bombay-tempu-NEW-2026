@@ -14,7 +14,7 @@
    - `getMemosByTrip` - Gets all memos for a trip
    - `getMemoById` - Gets single memo
    - `deleteMemo` - Soft deletes memo with logging
-
+ 
 3. **Routes** (`backend/routes/balanceMemos.js`)
    - POST `/api/balance-memos` - Create
    - PUT `/api/balance-memos/:id` - Update
