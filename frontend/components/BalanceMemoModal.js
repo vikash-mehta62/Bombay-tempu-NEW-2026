@@ -46,13 +46,30 @@ export default function BalanceMemoModal({
         .filter(payment => payment.clientId === clientId || payment.clientId?._id === clientId)
         .reduce((sum, payment) => sum + (payment.amount || 0), 0);
       
-      const totalUnloadingCharge = clientExpenses
-        .filter(expense => expense.clientId === clientId || expense.clientId?._id === clientId)
-        .reduce((sum, expense) => sum + (expense.amount || 0), 0);
+      // Group expenses by type
+      const expensesByType = {};
+      const filteredExpenses = clientExpenses.filter(expense => 
+        expense.clientId === clientId || expense.clientId?._id === clientId
+      );
       
-      const detention = 0;
-      // Total Payable = (Freight + Detention + Unloading Charge) - Advance
-      const totalPayable = (freight + detention + totalUnloadingCharge) - totalAdvance;
+      filteredExpenses.forEach(expense => {
+        const type = expense.expenseType || 'Other';
+        if (!expensesByType[type]) {
+          expensesByType[type] = 0;
+        }
+        expensesByType[type] += expense.amount || 0;
+      });
+      
+      const totalExpenses = Object.values(expensesByType).reduce((sum, amt) => sum + amt, 0);
+      
+      // Build expense remark text
+      const expenseRemark = Object.entries(expensesByType)
+        .map(([type, amount]) => `${type}: ₹${amount}`)
+        .join(', ');
+      
+      const detention = totalExpenses; // Put total expenses in detention field
+      // Total Payable = (Freight + Detention) - Advance
+      const totalPayable = (freight + detention) - totalAdvance;
 
       setFormData({
         invoiceNumber: tripData.tripNumber || '',
@@ -63,10 +80,11 @@ export default function BalanceMemoModal({
         to: clientData.destinationCity?.cityName || '',
         freight: freight,
         advance: totalAdvance,
-        detention: 0,
-        unloadingCharge: totalUnloadingCharge,
+        detention: detention, // Total expenses
+        unloadingCharge: 0, // Not used anymore
+        expensesByType: expensesByType,
         totalPayable: totalPayable,
-        remarks: ''
+        remarks: expenseRemark || 'Remark - Dication Charge ₹1000 / Per Day'
       });
     }
   }, [clientData, tripData, clientPayments, clientExpenses, isOpen]);
@@ -76,13 +94,12 @@ export default function BalanceMemoModal({
     setFormData(prev => {
       const updated = { ...prev, [name]: value };
       
-      if (['freight', 'advance', 'detention', 'unloadingCharge'].includes(name)) {
+      if (['freight', 'advance', 'detention'].includes(name)) {
         const freight = parseFloat(name === 'freight' ? value : updated.freight) || 0;
         const advance = parseFloat(name === 'advance' ? value : updated.advance) || 0;
         const detention = parseFloat(name === 'detention' ? value : updated.detention) || 0;
-        const unloadingCharge = parseFloat(name === 'unloadingCharge' ? value : updated.unloadingCharge) || 0;
-        // Total Payable = (Freight + Detention + Unloading Charge) - Advance
-        updated.totalPayable = (freight + detention + unloadingCharge) - advance;
+        // Total Payable = (Freight + Detention) - Advance
+        updated.totalPayable = (freight + detention) - advance;
       }
       
       return updated;
@@ -189,10 +206,9 @@ export default function BalanceMemoModal({
                 </div>
 
                 {/* Detention */}
-                <div className="grid grid-cols-[140px_100px_1fr] border-b border-[#c0c0c0] px-3 py-1">
+                <div className="grid grid-cols-[140px_1fr] border-b border-[#c0c0c0] px-3 py-1">
                   <span className="text-[13px] text-[#1a1a1a] font-bold">Detention</span>
                   <span className="text-[13px] text-[#1a1a1a]">{formData.detention}</span>
-                  <span className="text-[13px] text-[#1a1a1a]">Unloading Charge</span>
                 </div>
 
                 {/* Total Paybal Amt */}
@@ -218,7 +234,7 @@ export default function BalanceMemoModal({
 
                 {/* Empty row for advance alignment */}
                 <div className="border-b border-[#c0c0c0] px-3 py-1">
-                  <span className="text-[13px] text-[#1a1a1a] text-right pr-4">{formData.unloadingCharge}</span>
+                  <span className="text-[13px] text-[#1a1a1a]">&nbsp;</span>
                 </div>
 
                 {/* Unloading Charge value aligned with detention row */}
@@ -337,18 +353,14 @@ export default function BalanceMemoModal({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="label">Detention (₹) *</label>
-                <input type="number" name="detention" value={formData.detention} onChange={handleChange} className="input" placeholder="0" required />
+                <input type="number" name="detention" value={formData.detention} onChange={handleChange} className="input bg-gray-50" title="Auto-calculated from client expenses" readOnly />
+                <p className="text-xs text-gray-500 mt-1">Total of all client expenses</p>
               </div>
               <div>
-                <label className="label">Unloading Charge (₹) *</label>
-                <input type="number" name="unloadingCharge" value={formData.unloadingCharge} onChange={handleChange} className="input bg-gray-50" title="Auto-calculated from client expenses" readOnly />
+                <label className="label">Total Payable Amount (₹)</label>
+                <input type="number" name="totalPayable" value={formData.totalPayable} className="input bg-green-50 text-green-700 font-bold text-lg" readOnly />
+                <p className="text-xs text-gray-500 mt-1">Formula: (Freight + Detention) - Advance</p>
               </div>
-            </div>
-
-            <div>
-              <label className="label">Total Payable Amount (₹)</label>
-              <input type="number" name="totalPayable" value={formData.totalPayable} className="input bg-green-50 text-green-700 font-bold text-lg" readOnly />
-              <p className="text-xs text-gray-500 mt-1">Formula: (Freight + Detention + Unloading Charge) - Advance</p>
             </div>
 
             <div>

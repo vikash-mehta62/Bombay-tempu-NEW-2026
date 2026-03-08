@@ -149,6 +149,8 @@ export const reportsAPI = {
   getProfitBreakdown: () => api.get('/reports/profit-breakdown'),
   getMaintenanceCosts: () => api.get('/reports/maintenance'),
   getPODReports: (params) => api.get('/reports/pods', { params }),
+  getClientPendingReport: () => api.get('/reports/client-pending'),
+  getFleetPendingReport: () => api.get('/reports/fleet-pending'),
 };
 
 // Trip Expense API

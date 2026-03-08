@@ -130,7 +130,8 @@ exports.getTripById = async (req, res) => {
       .populate('driverId', 'fullName contact licenseNumber')
       .populate('clients.clientId', 'fullName companyName contact email')
       .populate('clients.originCity', 'cityName state pincode')
-      .populate('clients.destinationCity', 'cityName state pincode');
+      .populate('clients.destinationCity', 'cityName state pincode')
+      .populate('podHistory.submittedBy', 'fullName username');
     
     if (!trip) {
       return res.status(404).json({

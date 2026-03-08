@@ -10,7 +10,8 @@ import {
   FileText,
   Truck,
   BarChart3,
-  Calculator
+  Calculator,
+  Download
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -20,6 +21,8 @@ export default function ReportsPage() {
   const [profitBreakdown, setProfitBreakdown] = useState([]);
   const [maintenanceData, setMaintenanceData] = useState(null);
   const [podData, setPodData] = useState(null);
+  const [clientPendingData, setClientPendingData] = useState(null);
+  const [fleetPendingData, setFleetPendingData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [podFilters, setPodFilters] = useState({
@@ -36,6 +39,10 @@ export default function ReportsPage() {
   useEffect(() => {
     if (activeTab === 'pods') {
       loadPODReports();
+    } else if (activeTab === 'client-pending') {
+      loadClientPendingReport();
+    } else if (activeTab === 'fleet-pending') {
+      loadFleetPendingReport();
     }
   }, [activeTab, podFilters]);
 
@@ -67,6 +74,90 @@ export default function ReportsPage() {
       toast.error('Failed to load POD reports');
       console.error(error);
     }
+  };
+
+  const loadClientPendingReport = async () => {
+    try {
+      const response = await reportsAPI.getClientPendingReport();
+      setClientPendingData(response.data.data);
+    } catch (error) {
+      toast.error('Failed to load client pending report');
+      console.error(error);
+    }
+  };
+
+  const exportClientPendingToExcel = () => {
+    if (!clientPendingData || clientPendingData.clients.length === 0) {
+      toast.error('No data to export');
+      return;
+    }
+
+    // Create CSV content
+    let csvContent = 'Client Pending Payment Report\n\n';
+    csvContent += 'SR NO,Vehicle Number,Client Name,Pending Ad Count,Pending Advance\n';
+    
+    clientPendingData.clients.forEach((client, index) => {
+      client.trips.forEach((trip) => {
+        csvContent += `${index + 1},"${trip.vehicleNumber}","${client.clientName}",${client.totalPendingCount},${client.totalPendingAmount}\n`;
+      });
+    });
+    
+    csvContent += `\nTOTAL,,,${clientPendingData.summary.totalTripsWithPending},${clientPendingData.summary.grandTotalPending}\n`;
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Client_Pending_Report_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success('Report exported successfully');
+  };
+
+  const loadFleetPendingReport = async () => {
+    try {
+      const response = await reportsAPI.getFleetPendingReport();
+      setFleetPendingData(response.data.data);
+    } catch (error) {
+      toast.error('Failed to load fleet pending report');
+      console.error(error);
+    }
+  };
+
+  const exportFleetPendingToExcel = () => {
+    if (!fleetPendingData || fleetPendingData.fleetOwners.length === 0) {
+      toast.error('No data to export');
+      return;
+    }
+
+    // Create CSV content
+    let csvContent = 'Fleet Owner Pending Payment Report\n\n';
+    csvContent += 'SR NO,Vehicle Number,Fleet Owner Name,Pending Ad Count,Pending Balance\n';
+    
+    fleetPendingData.fleetOwners.forEach((fleet, index) => {
+      fleet.trips.forEach((trip) => {
+        csvContent += `${index + 1},"${trip.vehicleNumber}","${fleet.fleetOwnerName}",${fleet.totalPendingCount},${fleet.totalPendingAmount}\n`;
+      });
+    });
+    
+    csvContent += `\nTOTAL,,,${fleetPendingData.summary.totalTripsWithPending},${fleetPendingData.summary.grandTotalPending}\n`;
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Fleet_Pending_Report_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success('Report exported successfully');
   };
 
   const getColorClass = (color) => {
@@ -166,6 +257,26 @@ export default function ReportsPage() {
             }`}
           >
             PODs
+          </button>
+          <button
+            onClick={() => setActiveTab('client-pending')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'client-pending'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Client Pending
+          </button>
+          <button
+            onClick={() => setActiveTab('fleet-pending')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'fleet-pending'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Fleet Pending
           </button>
         </nav>
       </div>
@@ -602,6 +713,240 @@ export default function ReportsPage() {
                   </div>
                 ))
               )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Client Pending Payment Report Tab */}
+      {activeTab === 'client-pending' && (
+        <div className="space-y-4">
+          {clientPendingData ? (
+            <>
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="card bg-blue-50">
+                  <p className="text-sm text-gray-600 mb-1">Total Clients with Pending</p>
+                  <p className="text-2xl font-bold text-blue-600">{clientPendingData.summary.totalClients}</p>
+                </div>
+                <div className="card bg-orange-50">
+                  <p className="text-sm text-gray-600 mb-1">Total Trips with Pending</p>
+                  <p className="text-2xl font-bold text-orange-600">{clientPendingData.summary.totalTripsWithPending}</p>
+                </div>
+                <div className="card bg-red-50">
+                  <p className="text-sm text-gray-600 mb-1">Grand Total Pending</p>
+                  <p className="text-2xl font-bold text-red-600">{formatCurrency(clientPendingData.summary.grandTotalPending)}</p>
+                </div>
+              </div>
+
+              {/* Export Button */}
+              <div className="flex justify-end">
+                <button
+                  onClick={exportClientPendingToExcel}
+                  className="btn bg-green-600 text-white hover:bg-green-700 flex items-center"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export to Excel
+                </button>
+              </div>
+
+              {/* Client Pending Table */}
+              <div className="card overflow-hidden p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-blue-600 text-white">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-semibold border-r border-blue-500">
+                          SR NO
+                        </th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold border-r border-blue-500">
+                          Vehicle Number
+                        </th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold border-r border-blue-500">
+                          Client Name
+                        </th>
+                        <th className="px-4 py-3 text-center text-sm font-semibold border-r border-blue-500">
+                          Pending Ad Count
+                        </th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold">
+                          Pending Advance
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {clientPendingData.clients.length === 0 ? (
+                        <tr>
+                          <td colSpan="5" className="px-4 py-8 text-center text-gray-500">
+                            No pending payments found
+                          </td>
+                        </tr>
+                      ) : (
+                        <>
+                          {clientPendingData.clients.map((client, index) => (
+                            <tr key={client.clientId} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 border-r border-gray-200">
+                                <span className="text-sm text-gray-900">{index + 1}</span>
+                              </td>
+                              <td className="px-4 py-3 border-r border-gray-200">
+                                <div className="text-sm text-gray-900">
+                                  {client.trips.map((trip, idx) => (
+                                    <div key={idx} className="py-1">
+                                      {trip.vehicleNumber}
+                                    </div>
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 border-r border-gray-200">
+                                <span className="text-sm font-medium text-gray-900">{client.clientName}</span>
+                              </td>
+                              <td className="px-4 py-3 text-center border-r border-gray-200">
+                                <span className="text-sm font-semibold text-orange-600">{client.totalPendingCount}</span>
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <span className="text-sm font-bold text-red-600">{formatCurrency(client.totalPendingAmount)}</span>
+                              </td>
+                            </tr>
+                          ))}
+                          {/* Total Row */}
+                          <tr className="bg-gray-100 font-bold">
+                            <td colSpan="3" className="px-4 py-3 text-right border-r border-gray-300">
+                              <span className="text-sm text-gray-900">TOTAL</span>
+                            </td>
+                            <td className="px-4 py-3 text-center border-r border-gray-300">
+                              <span className="text-sm text-orange-700">{clientPendingData.summary.totalTripsWithPending}</span>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <span className="text-sm text-red-700">{formatCurrency(clientPendingData.summary.grandTotalPending)}</span>
+                            </td>
+                          </tr>
+                        </>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="card text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-500">Loading client pending report...</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Fleet Owner Pending Payment Report Tab */}
+      {activeTab === 'fleet-pending' && (
+        <div className="space-y-4">
+          {fleetPendingData ? (
+            <>
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="card bg-blue-50">
+                  <p className="text-sm text-gray-600 mb-1">Total Fleet Owners with Pending</p>
+                  <p className="text-2xl font-bold text-blue-600">{fleetPendingData.summary.totalFleetOwners}</p>
+                </div>
+                <div className="card bg-orange-50">
+                  <p className="text-sm text-gray-600 mb-1">Total Trips with Pending</p>
+                  <p className="text-2xl font-bold text-orange-600">{fleetPendingData.summary.totalTripsWithPending}</p>
+                </div>
+                <div className="card bg-red-50">
+                  <p className="text-sm text-gray-600 mb-1">Grand Total Pending</p>
+                  <p className="text-2xl font-bold text-red-600">{formatCurrency(fleetPendingData.summary.grandTotalPending)}</p>
+                </div>
+              </div>
+
+              {/* Export Button */}
+              <div className="flex justify-end">
+                <button
+                  onClick={exportFleetPendingToExcel}
+                  className="btn bg-green-600 text-white hover:bg-green-700 flex items-center"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export to Excel
+                </button>
+              </div>
+
+              {/* Fleet Pending Table */}
+              <div className="card overflow-hidden p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-blue-600 text-white">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-semibold border-r border-blue-500">
+                          SR NO
+                        </th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold border-r border-blue-500">
+                          Vehicle Number
+                        </th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold border-r border-blue-500">
+                          Fleet Owner Name
+                        </th>
+                        <th className="px-4 py-3 text-center text-sm font-semibold border-r border-blue-500">
+                          Pending Ad Count
+                        </th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold">
+                          Pending Balance
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {fleetPendingData.fleetOwners.length === 0 ? (
+                        <tr>
+                          <td colSpan="5" className="px-4 py-8 text-center text-gray-500">
+                            No pending payments found
+                          </td>
+                        </tr>
+                      ) : (
+                        <>
+                          {fleetPendingData.fleetOwners.map((fleet, index) => (
+                            <tr key={fleet.fleetOwnerId} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 border-r border-gray-200">
+                                <span className="text-sm text-gray-900">{index + 1}</span>
+                              </td>
+                              <td className="px-4 py-3 border-r border-gray-200">
+                                <div className="text-sm text-gray-900">
+                                  {fleet.trips.map((trip, idx) => (
+                                    <div key={idx} className="py-1">
+                                      {trip.vehicleNumber}
+                                    </div>
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 border-r border-gray-200">
+                                <span className="text-sm font-medium text-gray-900">{fleet.fleetOwnerName}</span>
+                              </td>
+                              <td className="px-4 py-3 text-center border-r border-gray-200">
+                                <span className="text-sm font-semibold text-orange-600">{fleet.totalPendingCount}</span>
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <span className="text-sm font-bold text-red-600">{formatCurrency(fleet.totalPendingAmount)}</span>
+                              </td>
+                            </tr>
+                          ))}
+                          {/* Total Row */}
+                          <tr className="bg-gray-100 font-bold">
+                            <td colSpan="3" className="px-4 py-3 text-right border-r border-gray-300">
+                              <span className="text-sm text-gray-900">TOTAL</span>
+                            </td>
+                            <td className="px-4 py-3 text-center border-r border-gray-300">
+                              <span className="text-sm text-orange-700">{fleetPendingData.summary.totalTripsWithPending}</span>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <span className="text-sm text-red-700">{formatCurrency(fleetPendingData.summary.grandTotalPending)}</span>
+                            </td>
+                          </tr>
+                        </>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="card text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-500">Loading fleet pending report...</p>
             </div>
           )}
         </div>

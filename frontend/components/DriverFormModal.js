@@ -24,7 +24,7 @@ export default function DriverFormModal({ isOpen, onClose, onSuccess, editData =
       phone: '',
       relation: ''
     },
-    status: 'active'
+    status: 'available'
   });
 
   useEffect(() => {
@@ -44,7 +44,7 @@ export default function DriverFormModal({ isOpen, onClose, onSuccess, editData =
           phone: '',
           relation: ''
         },
-        status: editData.status || 'active'
+        status: editData.status || 'available'
       });
     } else if (isOpen && !editData) {
       // Reset form for new driver
@@ -62,7 +62,7 @@ export default function DriverFormModal({ isOpen, onClose, onSuccess, editData =
           phone: '',
           relation: ''
         },
-        status: 'active'
+        status: 'available'
       });
     }
   }, [isOpen, editData]);
@@ -218,9 +218,10 @@ export default function DriverFormModal({ isOpen, onClose, onSuccess, editData =
                   onChange={handleChange}
                   className="input"
                 >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
+                  <option value="available">Available</option>
+                  <option value="on_trip">On Trip</option>
                   <option value="on_leave">On Leave</option>
+                  <option value="inactive">Inactive</option>
                   <option value="terminated">Terminated</option>
                 </select>
               </div>

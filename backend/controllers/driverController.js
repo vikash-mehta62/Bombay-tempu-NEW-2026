@@ -77,6 +77,21 @@ exports.getDriverById = async (req, res) => {
 // Create new driver
 exports.createDriver = async (req, res) => {
   try {
+    // If licenseNumber is empty string, set it to undefined to avoid unique constraint issues
+    if (req.body.licenseNumber === '' || req.body.licenseNumber === null) {
+      delete req.body.licenseNumber;
+    }
+    
+    // If aadhaarNumber is empty string, set it to undefined
+    if (req.body.aadhaarNumber === '' || req.body.aadhaarNumber === null) {
+      delete req.body.aadhaarNumber;
+    }
+    
+    // If email is empty string, set it to undefined
+    if (req.body.email === '' || req.body.email === null) {
+      delete req.body.email;
+    }
+    
     const driver = new Driver(req.body);
     await driver.save();
     
@@ -109,6 +124,17 @@ exports.updateDriver = async (req, res) => {
   try {
     // Don't allow password update through this endpoint
     delete req.body.password;
+    
+    // Convert empty strings to null for optional unique fields
+    if (req.body.licenseNumber === '') {
+      req.body.licenseNumber = null;
+    }
+    if (req.body.aadhaarNumber === '') {
+      req.body.aadhaarNumber = null;
+    }
+    if (req.body.email === '') {
+      req.body.email = null;
+    }
     
     const driver = await Driver.findByIdAndUpdate(
       req.params.id,

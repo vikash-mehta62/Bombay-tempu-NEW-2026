@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import Modal from './Modal';
 import { 
   User, 
@@ -27,6 +28,7 @@ import { generateClientReceipt, generateClientBalanceStatement, generateClientAd
 
 // Client Payment Statement Tab Component
 function ClientPaymentStatementTab({ client, formatCurrency }) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [trips, setTrips] = useState([]);
   const [payments, setPayments] = useState({});
@@ -467,11 +469,11 @@ function ClientPaymentStatementTab({ client, formatCurrency }) {
                   <tr key={txn.id} className="hover:bg-gray-50">
                     <td className="px-3 py-2 font-medium">
                       <a 
-                        href={`/trip/${txn.tripId}`}
+                        href={user?.role === 'user' ? `/trip/${txn.tripId}` : `/dashboard/trips/${txn.tripId}`}
                         className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
                         onClick={(e) => {
                           e.preventDefault();
-                          window.location.href = `/trip/${txn.tripId}`;
+                          window.location.href = user?.role === 'user' ? `/trip/${txn.tripId}` : `/dashboard/trips/${txn.tripId}`;
                         }}
                       >
                         {txn.tripNumber}
@@ -626,11 +628,11 @@ function ClientPaymentStatementTab({ client, formatCurrency }) {
                       </div>
                       <div>
                         <a 
-                          href={`/trip/${trip.tripId}`}
+                          href={user?.role === 'user' ? `/trip/${trip.tripId}` : `/dashboard/trips/${trip.tripId}`}
                           className="font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer"
                           onClick={(e) => {
                             e.preventDefault();
-                            window.location.href = `/trip/${trip.tripId}`;
+                            window.location.href = user?.role === 'user' ? `/trip/${trip.tripId}` : `/dashboard/trips/${trip.tripId}`;
                           }}
                         >
                           {trip.tripNumber}
@@ -958,11 +960,11 @@ function ClientAdjustmentTab({ client, formatCurrency, isAdminView = false }) {
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <a 
-                      href={`/trip/${trip._id}`}
+                      href={user?.role === 'user' ? `/trip/${trip._id}` : `/dashboard/trips/${trip._id}`}
                       className="font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer"
                       onClick={(e) => {
                         e.preventDefault();
-                        window.location.href = `/trip/${trip._id}`;
+                        window.location.href = user?.role === 'user' ? `/trip/${trip._id}` : `/dashboard/trips/${trip._id}`;
                       }}
                     >
                       {trip.tripNumber}
@@ -1127,6 +1129,15 @@ function ClientAdjustmentTab({ client, formatCurrency, isAdminView = false }) {
 
 export default function ClientViewModal({ isOpen, onClose, client, isAdminView = true }) {
   const [activeTab, setActiveTab] = useState('details');
+  const { user } = useAuth();
+  
+  // Helper function to get trip URL based on user role
+  const getTripUrl = (tripId) => {
+    if (user?.role === 'admin' || user?.role === 'sub_admin') {
+      return `/dashboard/trips/${tripId}`;
+    }
+    return `/trip/${tripId}`;
+  };
   
   if (!client) return null;
 

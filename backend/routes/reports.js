@@ -27,4 +27,14 @@ router.get('/maintenance', reportController.getMaintenanceCosts);
 // @access  Private (owner, manager, admin)
 router.get('/pods', reportController.getPODReports);
 
+// @route   GET /api/reports/client-pending
+// @desc    Get client pending payment report
+// @access  Private (owner, manager, admin)
+router.get('/client-pending', reportController.getClientPendingReport);
+
+// @route   GET /api/reports/fleet-pending
+// @desc    Get fleet owner pending payment report
+// @access  Private (owner, manager, admin)
+router.get('/fleet-pending', reportController.getFleetPendingReport);
+
 module.exports = router;

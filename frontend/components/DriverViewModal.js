@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import Modal from './Modal';
 import { 
   User, 
@@ -113,11 +114,11 @@ function DriverTripHistoryTab({ driver, formatCurrency, formatDate }) {
               <div key={trip._id} className="p-4 bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-2">
                   <a 
-                    href={`/trip/${trip._id}`}
+                    href={user?.role === 'user' ? `/trip/${trip._id}` : `/dashboard/trips/${trip._id}`}
                     className="font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer"
                     onClick={(e) => {
                       e.preventDefault();
-                      window.location.href = `/trip/${trip._id}`;
+                      window.location.href = user?.role === 'user' ? `/trip/${trip._id}` : `/dashboard/trips/${trip._id}`;
                     }}
                   >
                     {trip.tripNumber}
@@ -288,11 +289,11 @@ function DriverAdvancesTab({ driver, formatCurrency, formatDate }) {
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <a 
-                    href={`/trip/${adv.tripId}`}
+                    href={user?.role === 'user' ? `/trip/${adv.tripId}` : `/dashboard/trips/${adv.tripId}`}
                     className="font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer"
                     onClick={(e) => {
                       e.preventDefault();
-                      window.location.href = `/trip/${adv.tripId}`;
+                      window.location.href = user?.role === 'user' ? `/trip/${adv.tripId}` : `/dashboard/trips/${adv.tripId}`;
                     }}
                   >
                     {adv.tripNumber}
@@ -320,6 +321,7 @@ function DriverAdvancesTab({ driver, formatCurrency, formatDate }) {
 }
 
 export default function DriverViewModal({ isOpen, onClose, driver, isAdminView = true }) {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('details');
   const [loading, setLoading] = useState(false);
   const [driverData, setDriverData] = useState(driver);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import Modal from './Modal';
 import { 
   User, 
@@ -27,6 +28,7 @@ import { toast } from 'sonner';
 import html2canvas from 'html2canvas';
 
 export default function FleetOwnerViewModal({ fleetOwner, isOpen, onClose }) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [trips, setTrips] = useState([]);
   const [advances, setAdvances] = useState({});
@@ -382,11 +384,11 @@ export default function FleetOwnerViewModal({ fleetOwner, isOpen, onClose }) {
                         </div>
                         <div>
                           <a 
-                            href={`/trip/${trip._id}`}
+                            href={user?.role === 'user' ? `/trip/${trip._id}` : `/dashboard/trips/${trip._id}`}
                             className="font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer"
                             onClick={(e) => {
                               e.preventDefault();
-                              window.location.href = `/trip/${trip._id}`;
+                              window.location.href = user?.role === 'user' ? `/trip/${trip._id}` : `/dashboard/trips/${trip._id}`;
                             }}
                           >
                             {trip.tripNumber}
@@ -510,11 +512,11 @@ export default function FleetOwnerViewModal({ fleetOwner, isOpen, onClose }) {
                           <tr key={trip._id} className="hover:bg-gray-50">
                             <td className="px-4 py-3 font-medium">
                               <a 
-                                href={`/trip/${trip._id}`}
+                                href={user?.role === 'user' ? `/trip/${trip._id}` : `/dashboard/trips/${trip._id}`}
                                 className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
                                 onClick={(e) => {
                                   e.preventDefault();
-                                  window.location.href = `/trip/${trip._id}`;
+                                  window.location.href = user?.role === 'user' ? `/trip/${trip._id}` : `/dashboard/trips/${trip._id}`;
                                 }}
                               >
                                 {trip.tripNumber}
@@ -596,11 +598,11 @@ export default function FleetOwnerViewModal({ fleetOwner, isOpen, onClose }) {
                           <td className="px-6 py-4 text-gray-700 font-semibold">{index + 1}</td>
                           <td className="px-6 py-4">
                             <a 
-                              href={`/trip/${trip._id}`}
+                              href={user?.role === 'user' ? `/trip/${trip._id}` : `/dashboard/trips/${trip._id}`}
                               className="font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer text-base"
                               onClick={(e) => {
                                 e.preventDefault();
-                                window.location.href = `/trip/${trip._id}`;
+                                window.location.href = user?.role === 'user' ? `/trip/${trip._id}` : `/dashboard/trips/${trip._id}`;
                               }}
                             >
                               {trip.tripNumber}
@@ -738,11 +740,11 @@ export default function FleetOwnerViewModal({ fleetOwner, isOpen, onClose }) {
                           </td>
                           <td className="px-6 py-4">
                             <a 
-                              href={`/trip/${advance.tripId}`}
+                              href={user?.role === 'user' ? `/trip/${advance.tripId}` : `/dashboard/trips/${advance.tripId}`}
                               className="font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer text-base"
                               onClick={(e) => {
                                 e.preventDefault();
-                                window.location.href = `/trip/${advance.tripId}`;
+                                window.location.href = user?.role === 'user' ? `/trip/${advance.tripId}` : `/dashboard/trips/${advance.tripId}`;
                               }}
                             >
                               {advance.tripNumber}
