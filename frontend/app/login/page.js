@@ -160,17 +160,7 @@ export default function LoginPage() {
                 {loading ? 'Signing in...' : 'Sign In'}
               </button>
 
-              <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-800 font-medium mb-2">
-                  Admin Credentials:
-                </p>
-                <p className="text-sm text-blue-700">
-                  Username: <span className="font-mono font-semibold">mohit</span>
-                </p>
-                <p className="text-sm text-blue-700">
-                  Password: <span className="font-mono font-semibold">33550011</span>
-                </p>
-              </div>
+             
             </form>
           ) : (
             // Phone Login Form

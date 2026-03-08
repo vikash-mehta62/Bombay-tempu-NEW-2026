@@ -52,6 +52,13 @@ const vehicleSchema = new mongoose.Schema({
     default: null
   },
   
+  // Default Driver (for self-owned vehicles)
+  defaultDriverId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Driver',
+    default: null
+  },
+  
   // Identity
   engineNumber: {
     type: String,

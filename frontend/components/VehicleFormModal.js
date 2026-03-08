@@ -2,16 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import Modal from './Modal';
-import { vehicleAPI, fleetOwnerAPI } from '@/lib/api';
+import { vehicleAPI, fleetOwnerAPI, driverAPI } from '@/lib/api';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
 export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData = null }) {
   const [loading, setLoading] = useState(false);
   const [fleetOwners, setFleetOwners] = useState([]);
+  const [drivers, setDrivers] = useState([]);
   const [activeTab, setActiveTab] = useState('basic'); // 'basic', 'documents', 'review'
   const [showAddFleetOwner, setShowAddFleetOwner] = useState(false);
   const [fleetOwnerSearch, setFleetOwnerSearch] = useState('');
+  const [driverSearch, setDriverSearch] = useState('');
   const [newFleetOwner, setNewFleetOwner] = useState({
     fullName: '',
     contact: '',
@@ -42,6 +44,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
     // Ownership
     ownershipType: 'self_owned',
     fleetOwnerId: '',
+    defaultDriverId: '',
     
     // Identity
     engineNumber: '',
@@ -74,9 +77,11 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
   useEffect(() => {
     if (isOpen) {
       loadFleetOwners();
+      loadDrivers();
       if (editData) {
         setFormData({
           ...editData,
+          defaultDriverId: editData.defaultDriverId?._id || '',
           loanDetails: editData.loanDetails || {
             loanAmount: '',
             emiAmount: '',
@@ -97,6 +102,15 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
       setFleetOwners(response.data.data);
     } catch (error) {
       console.error('Error loading fleet owners:', error);
+    }
+  };
+
+  const loadDrivers = async () => {
+    try {
+      const response = await driverAPI.getAll();
+      setDrivers(response.data.data);
+    } catch (error) {
+      console.error('Error loading drivers:', error);
     }
   };
 
@@ -130,6 +144,11 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
   const filteredFleetOwners = fleetOwners.filter(owner =>
     owner.fullName.toLowerCase().includes(fleetOwnerSearch.toLowerCase()) ||
     owner.contact.includes(fleetOwnerSearch)
+  );
+
+  const filteredDrivers = drivers.filter(driver =>
+    driver.fullName.toLowerCase().includes(driverSearch.toLowerCase()) ||
+    driver.contact.includes(driverSearch)
   );
 
   const handleChange = (e) => {
@@ -236,6 +255,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
       fuelType: 'diesel',
       ownershipType: 'self_owned',
       fleetOwnerId: '',
+      defaultDriverId: '',
       engineNumber: '',
       chassisNumber: '',
       registrationDate: '',
@@ -260,6 +280,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
     setActiveTab('basic');
     setShowAddFleetOwner(false);
     setFleetOwnerSearch('');
+    setDriverSearch('');
     setNewFleetOwner({ fullName: '', contact: '', email: '', address: '' });
   };
 
@@ -600,6 +621,43 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
                 )}
               </div>
             </div>
+
+            {/* Default Driver - Only for Self Owned */}
+            {formData.ownershipType === 'self_owned' && (
+              <div className="border-t pt-4">
+                <h3 className="text-lg font-semibold mb-4">Default Driver</h3>
+                <p className="text-sm text-gray-600 mb-3">Select a default driver for this vehicle. This driver will be automatically selected when creating trips.</p>
+                <div>
+                  <label className="label">Default Driver (Optional)</label>
+                  
+                  {/* Search Input */}
+                  <div className="mb-2">
+                    <input
+                      type="text"
+                      placeholder="Search driver by name or contact..."
+                      value={driverSearch}
+                      onChange={(e) => setDriverSearch(e.target.value)}
+                      className="input"
+                    />
+                  </div>
+
+                  {/* Driver Select */}
+                  <select
+                    name="defaultDriverId"
+                    value={formData.defaultDriverId}
+                    onChange={handleChange}
+                    className="input"
+                  >
+                    <option value="">No Default Driver</option>
+                    {filteredDrivers.map((driver) => (
+                      <option key={driver._id} value={driver._id}>
+                        {driver.fullName} - {driver.contact}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
 
             {/* Description */}
             <div>

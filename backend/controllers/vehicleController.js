@@ -30,6 +30,7 @@ exports.getAllVehicles = async (req, res) => {
 
     const vehicles = await Vehicle.find(query)
       .populate('fleetOwnerId', 'fullName contact email')
+      .populate('defaultDriverId', 'fullName contact')
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -53,7 +54,8 @@ exports.getAllVehicles = async (req, res) => {
 exports.getVehicleById = async (req, res) => {
   try {
     const vehicle = await Vehicle.findById(req.params.id)
-      .populate('fleetOwnerId', 'fullName contact email');
+      .populate('fleetOwnerId', 'fullName contact email')
+      .populate('defaultDriverId', 'fullName contact');
 
     if (!vehicle) {
       return res.status(404).json({
@@ -131,7 +133,8 @@ exports.updateVehicle = async (req, res) => {
         new: true,
         runValidators: true
       }
-    ).populate('fleetOwnerId', 'fullName contact email');
+    ).populate('fleetOwnerId', 'fullName contact email')
+     .populate('defaultDriverId', 'fullName contact');
 
     res.status(200).json({
       success: true,

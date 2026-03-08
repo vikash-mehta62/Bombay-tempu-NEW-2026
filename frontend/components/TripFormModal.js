@@ -178,7 +178,20 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
   const handleVehicleChange = (vehicleId) => {
     const vehicle = vehicles.find(v => v._id === vehicleId);
     setSelectedVehicle(vehicle);
-    setFormData({ ...formData, vehicleId, driverId: '' });
+    
+    // Auto-select default driver if vehicle is self-owned and has a default driver
+    let defaultDriverId = '';
+    if (vehicle?.ownershipType === 'self_owned' && vehicle?.defaultDriverId) {
+      defaultDriverId = vehicle.defaultDriverId._id || vehicle.defaultDriverId;
+      
+      // Update driver search field with default driver name
+      const defaultDriver = drivers.find(d => d._id === defaultDriverId);
+      if (defaultDriver) {
+        setDriverSearch(defaultDriver.fullName);
+      }
+    }
+    
+    setFormData({ ...formData, vehicleId, driverId: defaultDriverId });
   };
 
   const handleAddClient = () => {
