@@ -233,7 +233,9 @@ exports.getClientStatement = async (req, res) => {
       // Get payments (advances) for this trip - CREDIT
       const payments = await ClientPayment.find({
         tripId: trip._id,
-        clientId: clientId
+        clientId: clientId,
+      isActive: true
+
       }).sort({ paymentDate: -1 });
       
       payments.forEach(payment => {
@@ -256,7 +258,9 @@ exports.getClientStatement = async (req, res) => {
       // Get expenses for this trip - DEBIT
       const expenses = await ClientExpense.find({
         tripId: trip._id,
-        clientId: clientId
+        clientId: clientId,
+      isActive: true
+
       }).sort({ expenseDate: -1 });
       
       expenses.forEach(expense => {
@@ -300,14 +304,18 @@ exports.getClientStatement = async (req, res) => {
       // Get payments
       const payments = await ClientPayment.find({
         tripId: trip._id,
-        clientId: clientId
+        clientId: clientId,
+      isActive: true
+
       });
       const paidAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
       
       // Get expenses
       const expenses = await ClientExpense.find({
         tripId: trip._id,
-        clientId: clientId
+        clientId: clientId,
+      isActive: true
+
       });
       const expenseAmount = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
       

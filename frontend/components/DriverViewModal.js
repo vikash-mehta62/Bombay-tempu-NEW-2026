@@ -30,7 +30,7 @@ import DriverCalculationTab from './DriverCalculationTab';
 import DriverDocumentUpload from './DriverDocumentUpload';
 
 // Trip History Tab Component
-function DriverTripHistoryTab({ driver, formatCurrency, formatDate }) {
+function DriverTripHistoryTab({ driver, formatCurrency, formatDate, isAdminView = true }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [trips, setTrips] = useState([]);
@@ -39,6 +39,8 @@ function DriverTripHistoryTab({ driver, formatCurrency, formatDate }) {
     completedTrips: 0,
     activeTrips: 0
   });
+  const [showAdvanceModal, setShowAdvanceModal] = useState(false);
+  const [selectedTrip, setSelectedTrip] = useState(null);
 
   useEffect(() => {
     if (driver?._id) {
@@ -69,6 +71,11 @@ function DriverTripHistoryTab({ driver, formatCurrency, formatDate }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGiveAdvance = (trip) => {
+    setSelectedTrip(trip);
+    setShowAdvanceModal(true);
   };
 
   if (loading) {
@@ -150,17 +157,47 @@ function DriverTripHistoryTab({ driver, formatCurrency, formatDate }) {
                     </p>
                   </div>
                 </div>
+                {isAdminView && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <button
+                      onClick={() => handleGiveAdvance(trip)}
+                      className="w-full px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                    >
+                      <DollarSign className="w-4 h-4" />
+                      Give Advance
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })
         )}
       </div>
+
+      {/* Advance Payment Modal */}
+      {showAdvanceModal && selectedTrip && (
+        <AdvancePaymentModal
+          isOpen={showAdvanceModal}
+          onClose={() => {
+            setShowAdvanceModal(false);
+            setSelectedTrip(null);
+          }}
+          trip={selectedTrip}
+          driver={driver}
+          onSuccess={() => {
+            setShowAdvanceModal(false);
+            setSelectedTrip(null);
+            toast.success('Advance payment added successfully');
+          }}
+        />
+      )}
     </div>
   );
 }
 
 // Advances Tab Component
 function DriverAdvancesTab({ driver, formatCurrency, formatDate }) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [advances, setAdvances] = useState([]);
   const [totalAdvances, setTotalAdvances] = useState(0);
@@ -318,6 +355,172 @@ function DriverAdvancesTab({ driver, formatCurrency, formatDate }) {
         )}
       </div>
     </div>
+  );
+}
+
+// Advance Payment Modal Component
+function AdvancePaymentModal({ isOpen, onClose, trip, driver, onSuccess }) {
+  const [formData, setFormData] = useState({
+    amount: '',
+    description: '',
+    paymentMethod: 'cash',
+    date: new Date().toISOString().split('T')[0]
+  });
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!formData.amount || formData.amount <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // Determine if fleet-owned or self-owned
+      const isFleetOwned = trip.vehicleId?.ownershipType === 'fleet_owner';
+      
+      const advanceData = {
+        tripId: trip._id,
+        driverId: isFleetOwned ? null : driver._id,
+        fleetOwnerId: isFleetOwned ? trip.vehicleId?.fleetOwnerId?._id : null,
+        amount: parseFloat(formData.amount),
+        description: formData.description,
+        paymentMethod: formData.paymentMethod,
+        date: formData.date
+      };
+
+      await tripAdvanceAPI.create(advanceData);
+      toast.success('Advance payment added successfully');
+      onSuccess();
+    } catch (error) {
+      console.error('Error adding advance:', error);
+      toast.error(error.response?.data?.message || 'Failed to add advance payment');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Give Advance Payment">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Trip Info */}
+        <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+          <p className="text-sm font-medium text-blue-900">Trip: {trip.tripNumber}</p>
+          <p className="text-xs text-blue-700">Driver: {driver.fullName}</p>
+          <p className="text-xs text-blue-700">Vehicle: {trip.vehicleId?.vehicleNumber || 'N/A'}</p>
+        </div>
+
+        {/* Amount */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Amount <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            name="amount"
+            value={formData.amount}
+            onChange={handleChange}
+            placeholder="Enter amount"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required
+            min="0"
+            step="0.01"
+          />
+        </div>
+
+        {/* Payment Method */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Payment Method <span className="text-red-500">*</span>
+          </label>
+          <select
+            name="paymentMethod"
+            value={formData.paymentMethod}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required
+          >
+            <option value="cash">Cash</option>
+            <option value="bank_transfer">Bank Transfer</option>
+            <option value="upi">UPI</option>
+            <option value="cheque">Cheque</option>
+            <option value="rtgs">RTGS</option>
+            <option value="neft">NEFT</option>
+            <option value="imps">IMPS</option>
+          </select>
+        </div>
+
+        {/* Date */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Date <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="date"
+            name="date"
+            value={formData.date}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required
+          />
+        </div>
+
+        {/* Description */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Description
+          </label>
+          <textarea
+            name="description"
+            value={formData.description}
+            onChange={handleChange}
+            placeholder="Enter description (optional)"
+            rows="3"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+
+        {/* Buttons */}
+        <div className="flex gap-3 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            disabled={loading}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <Loader className="w-4 h-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <DollarSign className="w-4 h-4" />
+                Give Advance
+              </>
+            )}
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -532,7 +735,7 @@ export default function DriverViewModal({ isOpen, onClose, driver, isAdminView =
 
         {/* Trip History Tab */}
         {activeTab === 'trips' && (
-          <DriverTripHistoryTab driver={driverData} formatCurrency={formatCurrency} formatDate={formatDate} />
+          <DriverTripHistoryTab driver={driverData} formatCurrency={formatCurrency} formatDate={formatDate} isAdminView={isAdminView} />
         )}
 
         {/* Advances Tab */}

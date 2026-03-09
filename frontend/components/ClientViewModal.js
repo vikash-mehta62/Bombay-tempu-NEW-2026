@@ -27,7 +27,7 @@ import 'jspdf-autotable';
 import { generateClientReceipt, generateClientBalanceStatement, generateClientAdjustmentStatement } from '@/utils/receiptGenerator';
 
 // Client Payment Statement Tab Component
-function ClientPaymentStatementTab({ client, formatCurrency }) {
+function ClientPaymentStatementTab({ client, formatCurrency, isAdminView = true }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [trips, setTrips] = useState([]);
@@ -35,6 +35,8 @@ function ClientPaymentStatementTab({ client, formatCurrency }) {
   const [expenses, setExpenses] = useState({});
   const [transactions, setTransactions] = useState([]);
   const [filteredTransactions, setFilteredTransactions] = useState([]);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedTrip, setSelectedTrip] = useState(null);
   
   // Filters
   const [fromDate, setFromDate] = useState('');
@@ -699,7 +701,19 @@ function ClientPaymentStatementTab({ client, formatCurrency }) {
                   )}
                   
                   {/* Download Receipt Button */}
-                  <div className="mt-3 flex justify-end">
+                  <div className="mt-3 flex justify-end gap-2">
+                    {isAdminView && trip.balance > 0 && (
+                      <button
+                        onClick={() => {
+                          setSelectedTrip(trip);
+                          setShowPaymentModal(true);
+                        }}
+                        className="btn btn-sm bg-green-600 text-white hover:bg-green-700 flex items-center space-x-2"
+                      >
+                        <DollarSign className="w-4 h-4" />
+                        <span>Add Payment</span>
+                      </button>
+                    )}
                     <button
                       onClick={() => downloadTripReceipt(trip, client)}
                       className="btn btn-sm bg-blue-600 text-white hover:bg-blue-700 flex items-center space-x-2"
@@ -713,8 +727,196 @@ function ClientPaymentStatementTab({ client, formatCurrency }) {
             })
           )}
         </div>
+
+        {/* Client Payment Modal */}
+        {showPaymentModal && selectedTrip && (
+          <ClientPaymentModal
+            isOpen={showPaymentModal}
+            onClose={() => {
+              setShowPaymentModal(false);
+              setSelectedTrip(null);
+            }}
+            trip={selectedTrip}
+            client={client}
+            onSuccess={() => {
+              setShowPaymentModal(false);
+              setSelectedTrip(null);
+              loadData(); // Reload data
+              toast.success('Payment added successfully');
+            }}
+          />
+        )}
       </div>
     </div>
+  );
+}
+
+// Client Payment Modal Component
+function ClientPaymentModal({ isOpen, onClose, trip, client, onSuccess }) {
+  const [formData, setFormData] = useState({
+    amount: '',
+    paymentMethod: 'cash',
+    paymentDate: new Date().toISOString().split('T')[0],
+    notes: ''
+  });
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!formData.amount || formData.amount <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+
+    if (parseFloat(formData.amount) > trip.balance) {
+      toast.error(`Amount cannot exceed balance of ₹${trip.balance}`);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      const paymentData = {
+        tripId: trip.tripId,
+        clientId: client._id,
+        amount: parseFloat(formData.amount),
+        paymentMethod: formData.paymentMethod,
+        paymentDate: formData.paymentDate,
+        notes: formData.notes
+      };
+
+      await clientPaymentAPI.create(paymentData);
+      toast.success('Payment added successfully');
+      onSuccess();
+    } catch (error) {
+      console.error('Error adding payment:', error);
+      toast.error(error.response?.data?.message || 'Failed to add payment');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Add Client Payment">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Trip Info */}
+        <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+          <p className="text-sm font-medium text-blue-900">Trip: {trip.tripNumber}</p>
+          <p className="text-xs text-blue-700">Client: {client.fullName}</p>
+          <p className="text-xs text-blue-700">Balance: ₹{trip.balance.toLocaleString('en-IN')}</p>
+        </div>
+
+        {/* Amount */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Amount <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            name="amount"
+            value={formData.amount}
+            onChange={handleChange}
+            placeholder="Enter amount"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required
+            min="0"
+            max={trip.balance}
+            step="0.01"
+          />
+          <p className="text-xs text-gray-500 mt-1">Maximum: ₹{trip.balance.toLocaleString('en-IN')}</p>
+        </div>
+
+        {/* Payment Method */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Payment Method <span className="text-red-500">*</span>
+          </label>
+          <select
+            name="paymentMethod"
+            value={formData.paymentMethod}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required
+          >
+            <option value="cash">Cash</option>
+            <option value="bank_transfer">Bank Transfer</option>
+            <option value="upi">UPI</option>
+            <option value="cheque">Cheque</option>
+            <option value="rtgs">RTGS</option>
+            <option value="neft">NEFT</option>
+            <option value="imps">IMPS</option>
+          </select>
+        </div>
+
+        {/* Payment Date */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Payment Date <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="date"
+            name="paymentDate"
+            value={formData.paymentDate}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required
+          />
+        </div>
+
+        {/* Notes */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Notes
+          </label>
+          <textarea
+            name="notes"
+            value={formData.notes}
+            onChange={handleChange}
+            placeholder="Enter notes (optional)"
+            rows="3"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+
+        {/* Buttons */}
+        <div className="flex gap-3 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            disabled={loading}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <Loader className="w-4 h-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <DollarSign className="w-4 h-4" />
+                Add Payment
+              </>
+            )}
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -1246,7 +1448,7 @@ export default function ClientViewModal({ isOpen, onClose, client, isAdminView =
 
         {/* Payment Statement Tab */}
         {activeTab === 'statement' && (
-          <ClientPaymentStatementTab client={client} formatCurrency={formatCurrency} />
+          <ClientPaymentStatementTab client={client} formatCurrency={formatCurrency} isAdminView={isAdminView} />
         )}
 
         {/* Adjustment Tab */}
