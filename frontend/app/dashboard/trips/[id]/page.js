@@ -1599,11 +1599,17 @@ export default function TripDetailsPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
                   <div>
                     <p className="text-xs text-gray-500">Load Description</p>
                     <p className="text-sm font-medium text-gray-900">
                       {client.specialInstructions || 'NA'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Load Date</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {formatDate(client.loadDate)}
                     </p>
                   </div>
                   <div>

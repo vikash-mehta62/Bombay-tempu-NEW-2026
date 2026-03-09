@@ -104,16 +104,32 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
           additionalInstructions: editData.additionalInstructions || ''
         });
         
-        // Set selected vehicle
+        // Set selected vehicle and vehicle search
         if (editData.vehicleId) {
           setSelectedVehicle(editData.vehicleId);
+          setVehicleSearch(editData.vehicleId.vehicleNumber || '');
         }
         
-        // Initialize search arrays for clients
+        // Set driver search if driver exists
+        if (editData.driverId) {
+          setDriverSearch(editData.driverId.fullName || '');
+        }
+        
+        // Initialize search arrays for clients with actual names
         if (editData.clients) {
-          setClientSearch(new Array(editData.clients.length).fill(''));
-          setOriginSearch(new Array(editData.clients.length).fill(''));
-          setDestinationSearch(new Array(editData.clients.length).fill(''));
+          const clientSearchArray = editData.clients.map(client => 
+            client.clientId?.fullName || ''
+          );
+          const originSearchArray = editData.clients.map(client => 
+            client.originCity ? `${client.originCity.cityName}, ${client.originCity.state}` : ''
+          );
+          const destinationSearchArray = editData.clients.map(client => 
+            client.destinationCity ? `${client.destinationCity.cityName}, ${client.destinationCity.state}` : ''
+          );
+          
+          setClientSearch(clientSearchArray);
+          setOriginSearch(originSearchArray);
+          setDestinationSearch(destinationSearchArray);
           setShowAddClient(new Array(editData.clients.length).fill(false));
           setShowAddOrigin(new Array(editData.clients.length).fill(false));
           setShowAddDestination(new Array(editData.clients.length).fill(false));
@@ -143,6 +159,8 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
           additionalInstructions: ''
         });
         setSelectedVehicle(null);
+        setVehicleSearch('');
+        setDriverSearch('');
         setClientSearch(['']);
         setOriginSearch(['']);
         setDestinationSearch(['']);
