@@ -31,6 +31,7 @@ import DriverDocumentUpload from './DriverDocumentUpload';
 
 // Trip History Tab Component
 function DriverTripHistoryTab({ driver, formatCurrency, formatDate }) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [trips, setTrips] = useState([]);
   const [stats, setStats] = useState({

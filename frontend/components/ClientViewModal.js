@@ -637,6 +637,11 @@ function ClientPaymentStatementTab({ client, formatCurrency }) {
                         >
                           {trip.tripNumber}
                         </a>
+                        {trip.vehicleNumber && (
+                          <p className="text-xs text-gray-700 font-medium mt-0.5">
+                            🚛 {trip.vehicleNumber}
+                          </p>
+                        )}
                         <p className="text-xs text-gray-600">
                           {new Date(trip.loadDate).toLocaleDateString('en-IN')}
                         </p>
@@ -969,6 +974,11 @@ function ClientAdjustmentTab({ client, formatCurrency, isAdminView = false }) {
                     >
                       {trip.tripNumber}
                     </a>
+                    {trip.vehicleId?.vehicleNumber && (
+                      <p className="text-xs text-gray-700 font-medium mt-0.5">
+                        🚛 {trip.vehicleId.vehicleNumber}
+                      </p>
+                    )}
                     <p className="text-xs text-gray-600">
                       {new Date(trip.loadDate).toLocaleDateString('en-IN')}
                     </p>
