@@ -71,12 +71,47 @@ const vehicleSchema = new mongoose.Schema({
   
   // Documents with Expiry
   registrationDate: Date,
+  registrationDocument: {
+    url: String,
+    publicId: String,
+    uploadedAt: Date
+  },
   fitnessExpiryDate: Date,
+  fitnessDocument: {
+    url: String,
+    publicId: String,
+    uploadedAt: Date
+  },
   insuranceExpiryDate: Date,
+  insuranceDocument: {
+    url: String,
+    publicId: String,
+    uploadedAt: Date
+  },
   pucExpiryDate: Date,
+  pucDocument: {
+    url: String,
+    publicId: String,
+    uploadedAt: Date
+  },
   permitExpiryDate: Date,
+  permitDocument: {
+    url: String,
+    publicId: String,
+    uploadedAt: Date
+  },
   nationalPermitExpiryDate: Date,
+  nationalPermitDocument: {
+    url: String,
+    publicId: String,
+    uploadedAt: Date
+  },
   taxValidUptoDate: Date,
+  taxDocument: {
+    url: String,
+    publicId: String,
+    uploadedAt: Date
+  },
   
   // Loan Details
   hasLoan: {

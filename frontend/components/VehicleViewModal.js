@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Modal from './Modal';
+import VehicleDocumentUpload from './VehicleDocumentUpload';
 import { Calendar, Truck, FileText, CreditCard, User, AlertTriangle, Bell, DollarSign, TrendingUp, TrendingDown, Download, Loader } from 'lucide-react';
-import { tripAPI, tripExpenseAPI, tripAdvanceAPI, expenseAPI } from '@/lib/api';
+import { tripAPI, tripExpenseAPI, tripAdvanceAPI, expenseAPI, vehicleAPI } from '@/lib/api';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -630,7 +631,7 @@ export default function VehicleViewModal({ isOpen, onClose, vehicle }) {
       title={`Vehicle Details - ${vehicle.vehicleNumber}`}
       size="xl"
     >
-      {/* Tab Navigation */}
+      {/* Tab Navigation - Hide extra tabs for fleet owner vehicles */}
       <div className="mb-6 border-b border-gray-200">
         <div className="flex space-x-1 overflow-x-auto">
           <button
@@ -644,28 +645,43 @@ export default function VehicleViewModal({ isOpen, onClose, vehicle }) {
           >
             Vehicle Details
           </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('loan')}
-            className={`px-4 py-2 font-medium text-sm whitespace-nowrap transition-colors ${
-              activeTab === 'loan'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Loan Information
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('papers')}
-            className={`px-4 py-2 font-medium text-sm whitespace-nowrap transition-colors ${
-              activeTab === 'papers'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Papers
-          </button>
+          {vehicle.ownershipType === 'self_owned' && (
+            <>
+              <button
+                type="button"
+                onClick={() => setActiveTab('documents')}
+                className={`px-4 py-2 font-medium text-sm whitespace-nowrap transition-colors ${
+                  activeTab === 'documents'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Documents Upload
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('loan')}
+                className={`px-4 py-2 font-medium text-sm whitespace-nowrap transition-colors ${
+                  activeTab === 'loan'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Loan Information
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('papers')}
+                className={`px-4 py-2 font-medium text-sm whitespace-nowrap transition-colors ${
+                  activeTab === 'papers'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Papers
+              </button>
+            </>
+          )}
           <button
             type="button"
             onClick={() => setActiveTab('expenses')}
@@ -677,22 +693,24 @@ export default function VehicleViewModal({ isOpen, onClose, vehicle }) {
           >
             Expenses
           </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('alerts')}
-            className={`px-4 py-2 font-medium text-sm whitespace-nowrap transition-colors relative ${
-              activeTab === 'alerts'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Alerts
-            {alerts.length > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                {alerts.length}
-              </span>
-            )}
-          </button>
+          {vehicle.ownershipType === 'self_owned' && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('alerts')}
+              className={`px-4 py-2 font-medium text-sm whitespace-nowrap transition-colors relative ${
+                activeTab === 'alerts'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Alerts
+              {alerts.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {alerts.length}
+                </span>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -714,34 +732,38 @@ export default function VehicleViewModal({ isOpen, onClose, vehicle }) {
                   <p className="text-xs text-gray-500">Type</p>
                   <p className="text-sm font-medium text-gray-900 capitalize">{vehicle.vehicleType.replace('_', ' ')}</p>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500">Brand & Model</p>
-                  <p className="text-sm font-medium text-gray-900">{vehicle.brand} {vehicle.model}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Capacity</p>
-                  <p className="text-sm font-medium text-gray-900">{vehicle.capacityTons} tons</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Fuel Type</p>
-                  <p className="text-sm font-medium text-gray-900 capitalize">{vehicle.fuelType}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Year</p>
-                  <p className="text-sm font-medium text-gray-900">{vehicle.year || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Color</p>
-                  <p className="text-sm font-medium text-gray-900">{vehicle.color || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Engine Number</p>
-                  <p className="text-sm font-medium text-gray-900">{vehicle.engineNumber || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Chassis Number</p>
-                  <p className="text-sm font-medium text-gray-900">{vehicle.chassisNumber || 'N/A'}</p>
-                </div>
+                {vehicle.ownershipType === 'self_owned' && (
+                  <>
+                    <div>
+                      <p className="text-xs text-gray-500">Brand & Model</p>
+                      <p className="text-sm font-medium text-gray-900">{vehicle.brand} {vehicle.model}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Capacity</p>
+                      <p className="text-sm font-medium text-gray-900">{vehicle.capacityTons} tons</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Fuel Type</p>
+                      <p className="text-sm font-medium text-gray-900 capitalize">{vehicle.fuelType}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Year</p>
+                      <p className="text-sm font-medium text-gray-900">{vehicle.year || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Color</p>
+                      <p className="text-sm font-medium text-gray-900">{vehicle.color || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Engine Number</p>
+                      <p className="text-sm font-medium text-gray-900">{vehicle.engineNumber || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Chassis Number</p>
+                      <p className="text-sm font-medium text-gray-900">{vehicle.chassisNumber || 'N/A'}</p>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -773,6 +795,18 @@ export default function VehicleViewModal({ isOpen, onClose, vehicle }) {
               </div>
             )}
           </>
+        )}
+
+        {/* Documents Upload Tab */}
+        {activeTab === 'documents' && (
+          <VehicleDocumentUpload 
+            vehicle={vehicle} 
+            onUpdate={() => {
+              // Just show success message, don't close modal
+              toast.success('Document updated successfully');
+            }}
+            isAdminView={true}
+          />
         )}
 
         {/* Loan Information Tab */}
@@ -852,63 +886,81 @@ export default function VehicleViewModal({ isOpen, onClose, vehicle }) {
           <div>
             <div className="flex items-center space-x-2 mb-4">
               <FileText className="w-5 h-5 text-blue-600" />
-              <h3 className="text-lg font-semibold text-gray-900">Document Expiry Dates</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Document Expiry Dates & Uploads</h3>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="text-xs text-gray-500">Registration Date</p>
-                  <p className="text-sm font-medium text-gray-900">{formatDate(vehicle.registrationDate)}</p>
+            
+            {/* Document Expiry Dates */}
+            <div className="mb-6">
+              <h4 className="font-semibold text-gray-900 mb-3">Expiry Dates</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-xs text-gray-500">Registration Date</p>
+                    <p className="text-sm font-medium text-gray-900">{formatDate(vehicle.registrationDate)}</p>
+                  </div>
                 </div>
-              </div>
-              
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="text-xs text-gray-500">Fitness Expiry</p>
-                  <p className="text-sm font-medium text-gray-900">{formatDate(vehicle.fitnessExpiryDate)}</p>
+                
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-xs text-gray-500">Fitness Expiry</p>
+                    <p className="text-sm font-medium text-gray-900">{formatDate(vehicle.fitnessExpiryDate)}</p>
+                  </div>
+                  {getExpiryBadge(vehicle.fitnessExpiryDate)}
                 </div>
-                {getExpiryBadge(vehicle.fitnessExpiryDate)}
-              </div>
 
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="text-xs text-gray-500">Insurance Expiry</p>
-                  <p className="text-sm font-medium text-gray-900">{formatDate(vehicle.insuranceExpiryDate)}</p>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-xs text-gray-500">Insurance Expiry</p>
+                    <p className="text-sm font-medium text-gray-900">{formatDate(vehicle.insuranceExpiryDate)}</p>
+                  </div>
+                  {getExpiryBadge(vehicle.insuranceExpiryDate)}
                 </div>
-                {getExpiryBadge(vehicle.insuranceExpiryDate)}
-              </div>
 
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="text-xs text-gray-500">PUC Expiry</p>
-                  <p className="text-sm font-medium text-gray-900">{formatDate(vehicle.pucExpiryDate)}</p>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-xs text-gray-500">PUC Expiry</p>
+                    <p className="text-sm font-medium text-gray-900">{formatDate(vehicle.pucExpiryDate)}</p>
+                  </div>
+                  {getExpiryBadge(vehicle.pucExpiryDate)}
                 </div>
-                {getExpiryBadge(vehicle.pucExpiryDate)}
-              </div>
 
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="text-xs text-gray-500">Permit Expiry</p>
-                  <p className="text-sm font-medium text-gray-900">{formatDate(vehicle.permitExpiryDate)}</p>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-xs text-gray-500">Permit Expiry</p>
+                    <p className="text-sm font-medium text-gray-900">{formatDate(vehicle.permitExpiryDate)}</p>
+                  </div>
+                  {getExpiryBadge(vehicle.permitExpiryDate)}
                 </div>
-                {getExpiryBadge(vehicle.permitExpiryDate)}
-              </div>
 
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="text-xs text-gray-500">National Permit Expiry</p>
-                  <p className="text-sm font-medium text-gray-900">{formatDate(vehicle.nationalPermitExpiryDate)}</p>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-xs text-gray-500">National Permit Expiry</p>
+                    <p className="text-sm font-medium text-gray-900">{formatDate(vehicle.nationalPermitExpiryDate)}</p>
+                  </div>
+                  {getExpiryBadge(vehicle.nationalPermitExpiryDate)}
                 </div>
-                {getExpiryBadge(vehicle.nationalPermitExpiryDate)}
-              </div>
 
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="text-xs text-gray-500">Tax Valid Upto</p>
-                  <p className="text-sm font-medium text-gray-900">{formatDate(vehicle.taxValidUptoDate)}</p>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-xs text-gray-500">Tax Valid Upto</p>
+                    <p className="text-sm font-medium text-gray-900">{formatDate(vehicle.taxValidUptoDate)}</p>
+                  </div>
+                  {getExpiryBadge(vehicle.taxValidUptoDate)}
                 </div>
-                {getExpiryBadge(vehicle.taxValidUptoDate)}
               </div>
+            </div>
+
+            {/* Document Uploads */}
+            <div className="border-t pt-6">
+              <h4 className="font-semibold text-gray-900 mb-3">Document Uploads</h4>
+              <VehicleDocumentUpload 
+                vehicle={vehicle} 
+                onUpdate={() => {
+                  // Reload vehicle data
+                  window.location.reload();
+                }}
+                isAdminView={true}
+              />
             </div>
           </div>
         )}

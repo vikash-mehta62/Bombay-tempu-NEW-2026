@@ -96,6 +96,13 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
     }
   }, [isOpen, editData]);
 
+  // Reset to basic tab when ownership type changes to fleet_owner
+  useEffect(() => {
+    if (formData.ownershipType === 'fleet_owner' && activeTab !== 'basic') {
+      setActiveTab('basic');
+    }
+  }, [formData.ownershipType]);
+
   const loadFleetOwners = async () => {
     try {
       const response = await fleetOwnerAPI.getAll();
@@ -300,7 +307,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
       size="xl"
     >
       <form onSubmit={handleSubmit}>
-        {/* Tab Navigation */}
+        {/* Tab Navigation - Hide extra tabs for fleet owner vehicles */}
         <div className="mb-6 border-b border-gray-200">
           <div className="flex space-x-1">
             <button
@@ -314,28 +321,32 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
             >
               Basic Details
             </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('documents')}
-              className={`px-6 py-3 font-medium text-sm transition-colors ${
-                activeTab === 'documents'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Documents & Loan
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('review')}
-              className={`px-6 py-3 font-medium text-sm transition-colors ${
-                activeTab === 'review'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Review
-            </button>
+            {formData.ownershipType === 'self_owned' && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('documents')}
+                  className={`px-6 py-3 font-medium text-sm transition-colors ${
+                    activeTab === 'documents'
+                      ? 'text-blue-600 border-b-2 border-blue-600'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Documents & Loan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('review')}
+                  className={`px-6 py-3 font-medium text-sm transition-colors ${
+                    activeTab === 'review'
+                      ? 'text-blue-600 border-b-2 border-blue-600'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Review
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -380,115 +391,120 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
                 </select>
               </div>
 
-              {/* Brand */}
-              <div>
-                <label className="label">Brand</label>
-                <input
-                  type="text"
-                  name="brand"
-                  value={formData.brand}
-                  onChange={handleChange}
-                  className="input"
-                  placeholder="Tata, Ashok Leyland, etc."
-                />
-              </div>
+              {/* Only show these fields for self-owned vehicles */}
+              {formData.ownershipType === 'self_owned' && (
+                <>
+                  {/* Brand */}
+                  <div>
+                    <label className="label">Brand</label>
+                    <input
+                      type="text"
+                      name="brand"
+                      value={formData.brand}
+                      onChange={handleChange}
+                      className="input"
+                      placeholder="Tata, Ashok Leyland, etc."
+                    />
+                  </div>
 
-              {/* Model */}
-              <div>
-                <label className="label">Model</label>
-                <input
-                  type="text"
-                  name="model"
-                  value={formData.model}
-                  onChange={handleChange}
-                  className="input"
-                  placeholder="LPT 1613"
-                />
-              </div>
+                  {/* Model */}
+                  <div>
+                    <label className="label">Model</label>
+                    <input
+                      type="text"
+                      name="model"
+                      value={formData.model}
+                      onChange={handleChange}
+                      className="input"
+                      placeholder="LPT 1613"
+                    />
+                  </div>
 
-              {/* Capacity */}
-              <div>
-                <label className="label">
-                  Capacity (Tons) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  name="capacityTons"
-                  value={formData.capacityTons}
-                  onChange={handleChange}
-                  className="input"
-                  placeholder="16"
-                  step="0.1"
-                  required
-                />
-              </div>
+                  {/* Capacity */}
+                  <div>
+                    <label className="label">
+                      Capacity (Tons) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="capacityTons"
+                      value={formData.capacityTons}
+                      onChange={handleChange}
+                      className="input"
+                      placeholder="16"
+                      step="0.1"
+                      required
+                    />
+                  </div>
 
-              {/* Year */}
-              <div>
-                <label className="label">Year of Manufacture</label>
-                <input
-                  type="number"
-                  name="year"
-                  value={formData.year}
-                  onChange={handleChange}
-                  className="input"
-                  min="1990"
-                  max={new Date().getFullYear() + 1}
-                />
-              </div>
+                  {/* Year */}
+                  <div>
+                    <label className="label">Year of Manufacture</label>
+                    <input
+                      type="number"
+                      name="year"
+                      value={formData.year}
+                      onChange={handleChange}
+                      className="input"
+                      min="1990"
+                      max={new Date().getFullYear() + 1}
+                    />
+                  </div>
 
-              {/* Fuel Type */}
-              <div>
-                <label className="label">Fuel Type</label>
-                <select
-                  name="fuelType"
-                  value={formData.fuelType}
-                  onChange={handleChange}
-                  className="input"
-                >
-                  <option value="diesel">Diesel</option>
-                  <option value="petrol">Petrol</option>
-                  <option value="cng">CNG</option>
-                  <option value="electric">Electric</option>
-                </select>
-              </div>
+                  {/* Fuel Type */}
+                  <div>
+                    <label className="label">Fuel Type</label>
+                    <select
+                      name="fuelType"
+                      value={formData.fuelType}
+                      onChange={handleChange}
+                      className="input"
+                    >
+                      <option value="diesel">Diesel</option>
+                      <option value="petrol">Petrol</option>
+                      <option value="cng">CNG</option>
+                      <option value="electric">Electric</option>
+                    </select>
+                  </div>
 
-              {/* Color */}
-              <div>
-                <label className="label">Color</label>
-                <input
-                  type="text"
-                  name="color"
-                  value={formData.color}
-                  onChange={handleChange}
-                  className="input"
-                  placeholder="White, Blue, etc."
-                />
-              </div>
+                  {/* Color */}
+                  <div>
+                    <label className="label">Color</label>
+                    <input
+                      type="text"
+                      name="color"
+                      value={formData.color}
+                      onChange={handleChange}
+                      className="input"
+                      placeholder="White, Blue, etc."
+                    />
+                  </div>
 
-              {/* Engine Number */}
-              <div>
-                <label className="label">Engine Number</label>
-                <input
-                  type="text"
-                  name="engineNumber"
-                  value={formData.engineNumber}
-                  onChange={handleChange}
-                  className="input"
-                />
-              </div>
+                  {/* Engine Number */}
+                  <div>
+                    <label className="label">Engine Number</label>
+                    <input
+                      type="text"
+                      name="engineNumber"
+                      value={formData.engineNumber}
+                      onChange={handleChange}
+                      className="input"
+                    />
+                  </div>
 
-              {/* Chassis Number */}
-              <div>
-                <label className="label">Chassis Number</label>
-                <input
-                  type="text"
-                  name="chassisNumber"
-                  value={formData.chassisNumber}
-                  onChange={handleChange}
-                  className="input"
-                />
-              </div>
+                  {/* Chassis Number */}
+                  <div>
+                    <label className="label">Chassis Number</label>
+                    <input
+                      type="text"
+                      name="chassisNumber"
+                      value={formData.chassisNumber}
+                      onChange={handleChange}
+                      className="input"
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Ownership */}
@@ -680,6 +696,14 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
             {/* Documents Section */}
             <div>
               <h3 className="text-lg font-semibold mb-4">Document Dates</h3>
+              
+              {/* Info Note */}
+              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Note:</strong> Document dates can be entered here. To upload document images (Registration, Fitness, Insurance, PUC, Permit, etc.), please save the vehicle first and then use the "View" option to access the document upload section.
+                </p>
+              </div>
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="label">Registration Date</label>

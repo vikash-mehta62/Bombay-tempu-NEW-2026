@@ -519,9 +519,9 @@ exports.getPODReports = async (req, res) => {
         clientName: client?.fullName || client?.companyName || 'Unknown',
         clientId: client?._id,
         origin: clientInTrip?.originCity?.cityName || 'N/A',
-        destination: clientInTrip?.destinationCity?.cityName || 'N/A',
+        destination: clientInTrip?.originCity?.cityName || 'N/A',
         status: pod.status,
-        date: pod.createdAt,
+        date: clientInTrip?.loadDate || trip?.loadDate || pod.createdAt, // Use client load date
         documents: pod.documents || []
       };
     });

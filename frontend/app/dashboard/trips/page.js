@@ -12,6 +12,7 @@ export default function TripsPage() {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchInput, setSearchInput] = useState(''); // Separate state for input
   const [statusFilter, setStatusFilter] = useState('');
   const [showNoFixAmount, setShowNoFixAmount] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -158,9 +159,19 @@ export default function TripsPage() {
     loadOverallStats();
   };
   
-  const handleSearch = (value) => {
-    setSearchTerm(value);
+  const handleSearch = () => {
+    setSearchTerm(searchInput);
     setCurrentPage(1); // Reset to first page on search
+  };
+  
+  const handleSearchInputChange = (value) => {
+    setSearchInput(value);
+  };
+  
+  const handleSearchKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
   };
   
   const handleStatusFilter = (value) => {
@@ -579,15 +590,24 @@ export default function TripsPage() {
         <div className="flex flex-col space-y-4">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0 md:space-x-4">
             {/* Search */}
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Search trips by trip number, vehicle, driver, client, fleet owner..."
-                value={searchTerm}
-                onChange={(e) => handleSearch(e.target.value)}
-                className="input pl-10"
-              />
+            <div className="relative flex-1 max-w-md flex space-x-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Search trips by trip number, vehicle, driver, client, fleet owner..."
+                  value={searchInput}
+                  onChange={(e) => handleSearchInputChange(e.target.value)}
+                  onKeyPress={handleSearchKeyPress}
+                  className="input pl-10 w-full"
+                />
+              </div>
+              <button
+                onClick={handleSearch}
+                className="btn btn-primary whitespace-nowrap"
+              >
+                Search
+              </button>
             </div>
 
             {/* Status Filter */}
@@ -639,7 +659,7 @@ export default function TripsPage() {
                   Route
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Load Date
+                  Client Load Date
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Revenue
@@ -763,9 +783,20 @@ export default function TripsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center text-sm text-gray-900">
-                          <Calendar className="w-3 h-3 mr-1 text-gray-400" />
-                          {formatDate(trip.loadDate)}
+                        <div className="text-sm text-gray-900">
+                          {trip.clients && trip.clients.length > 0 ? (
+                            trip.clients.map((client, idx) => (
+                              <div key={idx} className="flex items-center text-xs mb-1">
+                                <Calendar className="w-3 h-3 mr-1 text-gray-400" />
+                                {formatDate(client.loadDate)}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="flex items-center text-xs">
+                              <Calendar className="w-3 h-3 mr-1 text-gray-400" />
+                              {formatDate(trip.loadDate)}
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">

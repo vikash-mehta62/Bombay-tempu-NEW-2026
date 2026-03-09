@@ -7,10 +7,27 @@ const {
   updateVehicle,
   deleteVehicle,
   updateVehicleStatus,
-  getVehicleStats
+  getVehicleStats,
+  uploadDocument,
+  deleteDocument
 } = require('../controllers/vehicleController');
 const { protect, authorize } = require('../middleware/auth');
 const { logActivity } = require('../middleware/activityLogger');
+const multer = require('multer');
+
+// Configure multer for file upload
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'), false);
+    }
+  }
+});
 
 // All routes require authentication
 router.use(protect);
@@ -54,5 +71,11 @@ router.patch(
   logActivity('Updated vehicle status', 'UPDATE', 'vehicles'),
   updateVehicleStatus
 );
+
+// Upload vehicle document
+router.post('/:id/upload-document', upload.single('document'), uploadDocument);
+
+// Delete vehicle document
+router.delete('/:id/delete-document/:documentType', deleteDocument);
 
 module.exports = router;

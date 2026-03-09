@@ -66,6 +66,10 @@ export const vehicleAPI = {
   delete: (id) => api.delete(`/vehicles/${id}`),
   updateStatus: (id, status) => api.patch(`/vehicles/${id}/status`, { currentStatus: status }),
   getStats: () => api.get('/vehicles/stats'),
+  uploadDocument: (id, formData) => api.post(`/vehicles/${id}/upload-document`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  deleteDocument: (id, documentType) => api.delete(`/vehicles/${id}/delete-document/${documentType}`),
 };
 
 // Fleet Owner API

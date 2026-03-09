@@ -259,3 +259,319 @@ exports.getVehicleStats = async (req, res) => {
     });
   }
 };
+
+/**
+ * @desc    Upload vehicle document
+ * @route   POST /api/vehicles/:id/upload-document
+ * @access  Private (admin only)
+ */
+exports.uploadDocument = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { documentType } = req.body;
+    
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+    
+    const validDocTypes = [
+      'registration',
+      'fitness',
+      'insurance',
+      'puc',
+      'permit',
+      'national-permit',
+      'tax'
+    ];
+    
+    if (!validDocTypes.includes(documentType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid document type'
+      });
+    }
+    
+    const vehicle = await Vehicle.findById(id);
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vehicle not found'
+      });
+    }
+    
+    // Upload to Cloudinary
+    const cloudinary = require('cloudinary').v2;
+    
+    // Convert buffer to base64
+    const fileStr = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    
+    // Map document type to field name
+    const fieldMap = {
+      'registration': 'registrationDocument',
+      'fitness': 'fitnessDocument',
+      'insurance': 'insuranceDocument',
+      'puc': 'pucDocument',
+      'permit': 'permitDocument',
+      'national-permit': 'nationalPermitDocument',
+      'tax': 'taxDocument'
+    };
+    
+    const fieldName = fieldMap[documentType];
+    
+    // Delete old document if exists
+    if (vehicle[fieldName]?.publicId) {
+      await cloudinary.uploader.destroy(vehicle[fieldName].publicId);
+    }
+    
+    // Upload new document
+    const uploadResponse = await cloudinary.uploader.upload(fileStr, {
+      folder: `vehicles/${vehicle._id}/${documentType}`,
+      resource_type: 'image'
+    });
+    
+    // Update vehicle document
+    vehicle[fieldName] = {
+      url: uploadResponse.secure_url,
+      publicId: uploadResponse.public_id,
+      uploadedAt: new Date()
+    };
+    
+    await vehicle.save();
+    
+    res.json({
+      success: true,
+      message: `${documentType} document uploaded successfully`,
+      data: {
+        url: uploadResponse.secure_url,
+        documentType
+      }
+    });
+  } catch (error) {
+    console.error('Document upload error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to upload document',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @desc    Delete vehicle document
+ * @route   DELETE /api/vehicles/:id/delete-document/:documentType
+ * @access  Private (admin only)
+ */
+exports.deleteDocument = async (req, res) => {
+  try {
+    const { id, documentType } = req.params;
+    
+    const validDocTypes = [
+      'registration',
+      'fitness',
+      'insurance',
+      'puc',
+      'permit',
+      'national-permit',
+      'tax'
+    ];
+    
+    if (!validDocTypes.includes(documentType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid document type'
+      });
+    }
+    
+    const vehicle = await Vehicle.findById(id);
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vehicle not found'
+      });
+    }
+    
+    const cloudinary = require('cloudinary').v2;
+    
+    // Map document type to field name
+    const fieldMap = {
+      'registration': 'registrationDocument',
+      'fitness': 'fitnessDocument',
+      'insurance': 'insuranceDocument',
+      'puc': 'pucDocument',
+      'permit': 'permitDocument',
+      'national-permit': 'nationalPermitDocument',
+      'tax': 'taxDocument'
+    };
+    
+    const fieldName = fieldMap[documentType];
+    
+    // Delete from Cloudinary
+    if (vehicle[fieldName]?.publicId) {
+      await cloudinary.uploader.destroy(vehicle[fieldName].publicId);
+      vehicle[fieldName] = undefined;
+    }
+    
+    await vehicle.save();
+    
+    res.json({
+      success: true,
+      message: `${documentType} document deleted successfully`
+    });
+  } catch (error) {
+    console.error('Document delete error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete document',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @desc    Upload vehicle document
+ * @route   POST /api/vehicles/:id/upload-document
+ * @access  Private (admin only)
+ */
+exports.uploadDocument = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { documentType } = req.body;
+    
+    const validDocTypes = [
+      'registration',
+      'fitness',
+      'insurance',
+      'puc',
+      'permit',
+      'nationalPermit',
+      'tax'
+    ];
+    
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+    
+    if (!validDocTypes.includes(documentType)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid document type. Valid types: ${validDocTypes.join(', ')}`
+      });
+    }
+    
+    const vehicle = await Vehicle.findById(id);
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vehicle not found'
+      });
+    }
+    
+    // Upload to Cloudinary
+    const cloudinary = require('cloudinary').v2;
+    
+    // Convert buffer to base64
+    const fileStr = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    
+    // Delete old document if exists
+    const docField = `${documentType}Document`;
+    if (vehicle[docField]?.publicId) {
+      await cloudinary.uploader.destroy(vehicle[docField].publicId);
+    }
+    
+    // Upload new document
+    const uploadResponse = await cloudinary.uploader.upload(fileStr, {
+      folder: `vehicles/${vehicle._id}/${documentType}`,
+      resource_type: 'image'
+    });
+    
+    // Update vehicle document
+    vehicle[docField] = {
+      url: uploadResponse.secure_url,
+      publicId: uploadResponse.public_id,
+      uploadedAt: new Date()
+    };
+    
+    await vehicle.save();
+    
+    res.json({
+      success: true,
+      message: `${documentType} document uploaded successfully`,
+      data: {
+        url: uploadResponse.secure_url,
+        documentType
+      }
+    });
+  } catch (error) {
+    console.error('Document upload error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to upload document',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @desc    Delete vehicle document
+ * @route   DELETE /api/vehicles/:id/delete-document/:documentType
+ * @access  Private (admin only)
+ */
+exports.deleteDocument = async (req, res) => {
+  try {
+    const { id, documentType } = req.params;
+    
+    const validDocTypes = [
+      'registration',
+      'fitness',
+      'insurance',
+      'puc',
+      'permit',
+      'nationalPermit',
+      'tax'
+    ];
+    
+    if (!validDocTypes.includes(documentType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid document type'
+      });
+    }
+    
+    const vehicle = await Vehicle.findById(id);
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vehicle not found'
+      });
+    }
+    
+    const cloudinary = require('cloudinary').v2;
+    const docField = `${documentType}Document`;
+    
+    // Delete from Cloudinary
+    if (vehicle[docField]?.publicId) {
+      await cloudinary.uploader.destroy(vehicle[docField].publicId);
+      vehicle[docField] = undefined;
+    }
+    
+    await vehicle.save();
+    
+    res.json({
+      success: true,
+      message: `${documentType} document deleted successfully`
+    });
+  } catch (error) {
+    console.error('Document delete error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete document',
+      error: error.message
+    });
+  }
+};
