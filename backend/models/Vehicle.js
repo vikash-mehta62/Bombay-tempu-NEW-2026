@@ -5,7 +5,6 @@ const vehicleSchema = new mongoose.Schema({
   vehicleNumber: {
     type: String,
     required: [true, 'Vehicle number is required'],
-    unique: true,
     uppercase: true,
     trim: true
   },
@@ -31,7 +30,7 @@ const vehicleSchema = new mongoose.Schema({
   },
   capacityTons: {
     type: Number,
-    required: true
+    required: false
   },
   fuelType: {
     type: String,

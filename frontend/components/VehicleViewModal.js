@@ -36,53 +36,36 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
     try {
       setLoading(true);
       
-      // Fetch all trips for this vehicle
-      const tripsResponse = await tripAPI.getAll();
-      const vehicleTrips = tripsResponse.data.data.filter(
-        trip => trip.vehicleId?._id === vehicle._id && trip.isActive
-      );
+      // Fetch all data from the vehicle expenses endpoint
+      const vehicleExpensesResponse = await expenseAPI.getByVehicle(vehicle._id);
       
-      // Fetch expenses and advances for all vehicle trips
-      const expensePromises = vehicleTrips.map(trip => 
-        tripExpenseAPI.getByTrip(trip._id).catch(() => ({ data: { data: [], totalExpenses: 0 } }))
-      );
+      console.log('Vehicle Expenses Response:', vehicleExpensesResponse.data);
       
-      const advancePromises = vehicleTrips.map(trip => 
-        tripAdvanceAPI.getByTrip(trip._id).catch(() => ({ data: { data: [], totalAdvances: 0 } }))
-      );
+      const { data: expenseData, stats: expenseStats } = vehicleExpensesResponse.data;
       
-      // Fetch general expenses for this vehicle
-      const generalExpensesPromise = expenseAPI.getByVehicle(vehicle._id).catch(() => ({ data: { data: [] } }));
+      // Extract data
+      const vehicleTrips = expenseData.trips || [];
+      const allExpenses = expenseData.tripExpenses || [];
+      const allAdvances = expenseData.tripAdvances || [];
+      const allGeneralExpenses = expenseData.generalExpenses || [];
       
-      const [expensesResponses, advancesResponses, generalExpensesResponse] = await Promise.all([
-        Promise.all(expensePromises),
-        Promise.all(advancePromises),
-        generalExpensesPromise
-      ]);
-      
-      // Flatten all expenses and advances
-      const allExpenses = expensesResponses.flatMap(res => res.data.data || []);
-      const allAdvances = advancesResponses.flatMap(res => res.data.data || []);
-      const allGeneralExpenses = generalExpensesResponse.data.data || [];
-      
-      // Calculate stats
-      const totalIncome = vehicleTrips.reduce((sum, trip) => sum + (trip.totalClientRevenue || 0), 0);
-      const totalExpenses = allExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
-      const totalAdvances = allAdvances.reduce((sum, adv) => sum + (adv.amount || 0), 0);
-      const totalGeneralExpenses = allGeneralExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
-      const profit = totalIncome - totalExpenses - totalAdvances - totalGeneralExpenses;
+      console.log('Vehicle Expenses - Vehicle Trips:', vehicleTrips.length, vehicleTrips.map(t => t.tripNumber));
+      console.log('Vehicle Expenses - Advances loaded:', allAdvances.length, allAdvances);
+      console.log('Vehicle Expenses - Trip Expenses loaded:', allExpenses.length);
+      console.log('Vehicle Expenses - General Expenses loaded:', allGeneralExpenses.length);
+      console.log('Vehicle Expenses - Stats from backend:', expenseStats);
       
       setTrips(vehicleTrips);
       setExpenses(allExpenses);
       setAdvances(allAdvances);
       setGeneralExpenses(allGeneralExpenses);
       setStats({
-        totalIncome,
-        totalExpenses,
-        totalAdvances,
-        totalGeneralExpenses,
-        profit,
-        tripCount: vehicleTrips.length
+        totalIncome: expenseStats.totalIncome || 0,
+        totalExpenses: expenseStats.totalTripExpenses || 0,
+        totalAdvances: expenseStats.totalAdvances || 0,
+        totalGeneralExpenses: expenseStats.totalGeneralExpenses || 0,
+        profit: expenseStats.netProfit || 0,
+        tripCount: expenseStats.tripCount || 0
       });
     } catch (error) {
       console.error('Error loading vehicle data:', error);

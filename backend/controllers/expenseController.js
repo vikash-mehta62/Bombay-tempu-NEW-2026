@@ -115,22 +115,76 @@ exports.getAllExpenses = async (req, res) => {
 // Get expenses by vehicle
 exports.getExpensesByVehicle = async (req, res) => {
   try {
-    const expenses = await Expense.find({ 
+    const Trip = require('../models/Trip');
+    const TripExpense = require('../models/TripExpense');
+    const TripAdvance = require('../models/TripAdvance');
+    
+    // Get general vehicle expenses
+    const generalExpenses = await Expense.find({ 
       vehicleId: req.params.vehicleId,
       isActive: true 
     })
     .populate('createdBy', 'fullName username')
     .sort({ date: -1 });
 
-    const totalAmount = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+    // Get all trips for this vehicle
+    const trips = await Trip.find({
+      vehicleId: req.params.vehicleId,
+      isActive: true
+    }).select('_id tripNumber loadDate totalClientRevenue');
+
+    // Get trip expenses for all vehicle trips
+    const tripIds = trips.map(t => t._id);
+    const tripExpenses = await TripExpense.find({
+      tripId: { $in: tripIds },
+      isActive: true
+    })
+    .populate('tripId', 'tripNumber')
+    .populate('createdBy', 'fullName username')
+    .sort({ date: -1 });
+
+    // Get trip advances for all vehicle trips
+    const tripAdvances = await TripAdvance.find({
+      tripId: { $in: tripIds },
+      isActive: true
+    })
+    .populate('tripId', 'tripNumber')
+    .populate('driverId', 'fullName')
+    .populate('fleetOwnerId', 'fullName')
+    .populate('createdBy', 'fullName username')
+    .sort({ date: -1 });
+
+    // Calculate totals
+    const totalGeneralExpenses = generalExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const totalTripExpenses = tripExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const totalAdvances = tripAdvances.reduce((sum, adv) => sum + adv.amount, 0);
+    const totalIncome = trips.reduce((sum, trip) => sum + (trip.totalClientRevenue || 0), 0);
+    const totalOutflow = totalGeneralExpenses + totalTripExpenses + totalAdvances;
+    const netProfit = totalIncome - totalOutflow;
 
     res.json({
       success: true,
-      data: expenses,
-      totalAmount,
-      count: expenses.length
+      data: {
+        generalExpenses,
+        tripExpenses,
+        tripAdvances,
+        trips
+      },
+      stats: {
+        totalIncome,
+        totalGeneralExpenses,
+        totalTripExpenses,
+        totalAdvances,
+        totalOutflow,
+        netProfit,
+        tripCount: trips.length
+      },
+      // Legacy support
+      totalAmount: totalGeneralExpenses,
+      count: generalExpenses.length
     });
   } catch (error) {
+    console.error('Error in getExpensesByVehicle:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

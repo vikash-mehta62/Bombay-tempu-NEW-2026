@@ -188,6 +188,23 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
       // Remove fleetOwnerId if self_owned
       if (submitData.ownershipType === 'self_owned') {
         submitData.fleetOwnerId = null;
+      } else {
+        // For fleet owner vehicles, remove unnecessary fields
+        submitData.brand = '';
+        submitData.model = '';
+        submitData.capacityTons = null;
+        submitData.year = null;
+        submitData.fuelType = 'diesel';
+        submitData.color = '';
+        submitData.engineNumber = '';
+        submitData.chassisNumber = '';
+        submitData.hasLoan = false;
+        submitData.loanDetails = {};
+      }
+      
+      // Handle defaultDriverId - convert empty string to null
+      if (submitData.defaultDriverId === '') {
+        submitData.defaultDriverId = null;
       }
       
       // Remove loan details if no loan

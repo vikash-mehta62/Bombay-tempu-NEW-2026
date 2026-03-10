@@ -83,6 +83,39 @@ exports.getVehicleById = async (req, res) => {
  */
 exports.createVehicle = async (req, res) => {
   try {
+    // Check if vehicle number already exists in active vehicles
+    const existingVehicle = await Vehicle.findOne({ 
+      vehicleNumber: req.body.vehicleNumber.toUpperCase(),
+      isActive: true 
+    });
+
+    if (existingVehicle) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vehicle number already exists'
+      });
+    }
+
+    // Check if there's an inactive vehicle with same number - reactivate it
+    const inactiveVehicle = await Vehicle.findOne({ 
+      vehicleNumber: req.body.vehicleNumber.toUpperCase(),
+      isActive: false 
+    });
+
+    if (inactiveVehicle) {
+      // Update the inactive vehicle with new data
+      Object.assign(inactiveVehicle, req.body);
+      inactiveVehicle.isActive = true;
+      await inactiveVehicle.save();
+
+      return res.status(201).json({
+        success: true,
+        message: 'Vehicle created successfully',
+        data: inactiveVehicle
+      });
+    }
+
+    // Create new vehicle
     const vehicle = await Vehicle.create(req.body);
 
     res.status(201).json({
@@ -121,6 +154,23 @@ exports.updateVehicle = async (req, res) => {
         success: false,
         message: 'Vehicle not found'
       });
+    }
+
+    // Check if vehicle number is being changed
+    if (req.body.vehicleNumber && req.body.vehicleNumber.toUpperCase() !== originalVehicle.vehicleNumber) {
+      // Check if new vehicle number already exists in active vehicles
+      const existingVehicle = await Vehicle.findOne({ 
+        vehicleNumber: req.body.vehicleNumber.toUpperCase(),
+        isActive: true,
+        _id: { $ne: req.params.id }
+      });
+
+      if (existingVehicle) {
+        return res.status(400).json({
+          success: false,
+          message: 'Vehicle number already exists'
+        });
+      }
     }
 
     // Store original data for activity log
