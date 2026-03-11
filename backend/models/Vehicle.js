@@ -30,7 +30,8 @@ const vehicleSchema = new mongoose.Schema({
   },
   capacityTons: {
     type: Number,
-    required: false
+    required: false,
+    default: undefined
   },
   fuelType: {
     type: String,

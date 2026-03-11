@@ -7,8 +7,8 @@ exports.createExpense = async (req, res) => {
   try {
     const { amount, expenseType, vehicleId, notes, date } = req.body;
 
-    // Check for duplicate entry within last 15 minutes
-    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+    // Check for duplicate entry within last 30 seconds
+    const thirtySecondsAgo = new Date(Date.now() - 30 * 1000);
     const duplicateCheck = await Expense.findOne({
       amount,
       expenseType,
@@ -21,7 +21,7 @@ exports.createExpense = async (req, res) => {
     if (duplicateCheck) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Duplicate entry detected. Same expense was added within last 15 minutes.' 
+        message: 'Duplicate entry detected. Same expense was added within last 30 seconds.' 
       });
     }
 

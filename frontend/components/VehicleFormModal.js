@@ -192,7 +192,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
         // For fleet owner vehicles, remove unnecessary fields
         submitData.brand = '';
         submitData.model = '';
-        submitData.capacityTons = null;
+        submitData.capacityTons = undefined; // Changed from null to undefined
         submitData.year = null;
         submitData.fuelType = 'diesel';
         submitData.color = '';
@@ -200,11 +200,17 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
         submitData.chassisNumber = '';
         submitData.hasLoan = false;
         submitData.loanDetails = {};
+        submitData.defaultDriverId = null; // Fleet owner vehicles don't have default driver
       }
       
       // Handle defaultDriverId - convert empty string to null
       if (submitData.defaultDriverId === '') {
         submitData.defaultDriverId = null;
+      }
+      
+      // Handle capacityTons - convert empty string to undefined
+      if (submitData.capacityTons === '') {
+        submitData.capacityTons = undefined;
       }
       
       // Remove loan details if no loan
