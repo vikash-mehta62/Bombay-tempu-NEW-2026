@@ -51,13 +51,39 @@ function DriverTripHistoryTab({ driver, formatCurrency, formatDate, isAdminView 
   const loadTrips = async () => {
     try {
       setLoading(true);
-      const response = await tripAPI.getAll();
+      
+      // Fetch all trips without pagination
+      const response = await tripAPI.getAll({ limit: 1000 }); // Get all trips
       const allTrips = response.data.data;
       
-      // Filter trips for this driver
-      const driverTrips = allTrips.filter(trip => 
-        trip.driverId?._id === driver._id && trip.isActive
-      );
+      console.log('=== Driver Trip Loading Debug ===');
+      console.log('Total trips fetched:', allTrips.length);
+      console.log('Looking for driver:', driver.fullName, 'ID:', driver._id);
+      
+      // Filter trips for this driver - handle both populated and non-populated driverId
+      const driverTrips = allTrips.filter(trip => {
+        if (!trip.driverId) {
+          return false; // Skip trips with no driver
+        }
+        
+        // Handle both populated object and string ID
+        const tripDriverId = typeof trip.driverId === 'object' 
+          ? trip.driverId._id?.toString() 
+          : trip.driverId?.toString();
+        
+        const currentDriverId = driver._id?.toString();
+        
+        const matches = tripDriverId === currentDriverId && trip.isActive;
+        
+        if (matches) {
+          console.log('✓ Found trip:', trip.tripNumber, 'Driver:', trip.driverId?.fullName || tripDriverId);
+        }
+        
+        return matches;
+      });
+      
+      console.log('Driver trips found:', driverTrips.length);
+      console.log('=================================');
       
       setTrips(driverTrips);
       setStats({
@@ -211,13 +237,16 @@ function DriverAdvancesTab({ driver, formatCurrency, formatDate }) {
   const loadAdvances = async () => {
     try {
       setLoading(true);
-      const response = await tripAPI.getAll();
+      
+      // Fetch all trips without pagination
+      const response = await tripAPI.getAll({ limit: 1000 }); // Get all trips
       const allTrips = response.data.data;
       
       // Filter trips for this driver
-      const driverTrips = allTrips.filter(trip => 
-        trip.driverId?._id === driver._id && trip.isActive
-      );
+      const driverTrips = allTrips.filter(trip => {
+        const tripDriverId = trip.driverId?._id || trip.driverId;
+        return (tripDriverId === driver._id || tripDriverId?.toString() === driver._id?.toString()) && trip.isActive;
+      });
       
       // Collect all advances
       const allAdvances = [];

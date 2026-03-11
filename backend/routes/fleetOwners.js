@@ -6,7 +6,8 @@ const {
   createFleetOwner,
   updateFleetOwner,
   deleteFleetOwner,
-  getFleetOwnerVehicles
+  getFleetOwnerVehicles,
+  getFleetOwnerStatement
 } = require('../controllers/fleetOwnerController');
 const { protect, authorize } = require('../middleware/auth');
 const { logActivity } = require('../middleware/activityLogger');
@@ -49,6 +50,13 @@ router.get(
   '/:id/vehicles',
   logActivity('Viewed fleet owner vehicles', 'READ', 'fleet_owners'),
   getFleetOwnerVehicles
+);
+
+// Get fleet owner statement with complete details
+router.get(
+  '/:id/statement',
+  logActivity('Viewed fleet owner statement', 'READ', 'fleet_owners'),
+  getFleetOwnerStatement
 );
 
 module.exports = router;

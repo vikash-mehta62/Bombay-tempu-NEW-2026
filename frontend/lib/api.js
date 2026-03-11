@@ -76,6 +76,7 @@ export const vehicleAPI = {
 export const fleetOwnerAPI = {
   getAll: (params) => api.get('/fleet-owners', { params }),
   getById: (id) => api.get(`/fleet-owners/${id}`),
+  getStatement: (id) => api.get(`/fleet-owners/${id}/statement`),
   create: (data) => api.post('/fleet-owners', data),
   update: (id, data) => api.put(`/fleet-owners/${id}`, data),
   delete: (id) => api.delete(`/fleet-owners/${id}`),

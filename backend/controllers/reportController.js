@@ -989,122 +989,6 @@ exports.getFleetPendingReport = async (req, res) => {
       })
       .lean();
     
-    // Filter out trips without fleet-owned vehicles
-    const fleetTrips = trips.filter(trip => trip.vehicleId && trip.vehicleId.ownershipType === 'fleet_owner');
-    
-    // Group by fleet owner and calculate pending amounts
-    const fleetPendingMap = new Map();
-    
-    for (const trip of fleetTrips) {
-      const vehicle = trip.vehicleId;
-      const fleetOwner = vehicle.fleetOwnerId;
-      
-      if (!fleetOwner) continue;
-      
-      const fleetOwnerId = fleetOwner._id.toString();
-      const fleetOwnerName = fleetOwner.fullName || fleetOwner.companyName || 'Unknown';
-      const vehicleNumber = vehicle.vehicleNumber || 'N/A';
-      
-      // Calculate total amount due for this fleet owner in this trip
-      // Total Due = Sum of all client's truckHireCost
-      const totalHireCost = trip.clients.reduce((sum, client) => sum + (client.truckHireCost || 0), 0);
-      
-      // Get fleet advances for this trip
-      const fleetAdvances = await TripAdvance.find({
-        tripId: trip._id,
-        isActive: true
-      }).lean();
-      
-      const totalAdvances = fleetAdvances.reduce((sum, adv) => sum + (adv.amount || 0), 0);
-      
-      // Get fleet expenses for this trip
-      const fleetExpenses = await TripExpense.find({
-        tripId: trip._id,
-        isActive: true
-      }).lean();
-      
-      const totalExpenses = fleetExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
-      
-      // Pending Balance = Hire Cost - (Advances + Expenses)
-      const pendingBalance = totalHireCost - (totalAdvances + totalExpenses);
-      
-      // Only include if there's a pending balance
-      if (pendingBalance > 0) {
-        if (!fleetPendingMap.has(fleetOwnerId)) {
-          fleetPendingMap.set(fleetOwnerId, {
-            fleetOwnerId,
-            fleetOwnerName,
-            trips: [],
-            totalPendingCount: 0,
-            totalPendingAmount: 0
-          });
-        }
-        
-        const fleetData = fleetPendingMap.get(fleetOwnerId);
-        fleetData.trips.push({
-          tripId: trip._id,
-          tripNumber: trip.tripNumber,
-          vehicleNumber,
-          pendingBalance
-        });
-        fleetData.totalPendingCount += 1;
-        fleetData.totalPendingAmount += pendingBalance;
-      }
-    }
-    
-    // Convert map to array and sort by pending amount (highest first)
-    const fleetPendingData = Array.from(fleetPendingMap.values())
-      .sort((a, b) => b.totalPendingAmount - a.totalPendingAmount);
-    
-    // Calculate grand total
-    const grandTotal = fleetPendingData.reduce((sum, fleet) => sum + fleet.totalPendingAmount, 0);
-    const totalTripsCount = fleetPendingData.reduce((sum, fleet) => sum + fleet.totalPendingCount, 0);
-    
-    res.status(200).json({
-      success: true,
-      data: {
-        fleetOwners: fleetPendingData,
-        summary: {
-          totalFleetOwners: fleetPendingData.length,
-          totalTripsWithPending: totalTripsCount,
-          grandTotalPending: grandTotal
-        }
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching fleet pending report:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
-
-
-/**
- * @desc    Get fleet owner pending payment report
- * @route   GET /api/reports/fleet-pending
- * @access  Private (owner, manager, admin)
- */
-exports.getFleetPendingReport = async (req, res) => {
-  try {
-    const TripAdvance = require('../models/TripAdvance');
-    const TripExpense = require('../models/TripExpense');
-    const Vehicle = require('../models/Vehicle');
-    const FleetOwner = require('../models/FleetOwner');
-    
-    // Get all active trips with fleet-owned vehicles
-    const trips = await Trip.find({ isActive: true })
-      .populate({
-        path: 'vehicleId',
-        match: { ownershipType: 'fleet_owner' },
-        populate: {
-          path: 'fleetOwnerId',
-          select: 'fullName companyName'
-        }
-      })
-      .lean();
-    
     // Filter out trips without fleet vehicles
     const fleetTrips = trips.filter(trip => trip.vehicleId !== null);
     
@@ -1129,7 +1013,7 @@ exports.getFleetPendingReport = async (req, res) => {
       
       const totalAdvances = advances.reduce((sum, adv) => sum + (adv.amount || 0), 0);
       
-      // Get expenses paid to fleet owner for this trip
+      // Get expenses paid for this trip
       const expenses = await TripExpense.find({
         tripId: trip._id,
         isActive: true
@@ -1137,10 +1021,20 @@ exports.getFleetPendingReport = async (req, res) => {
       
       const totalExpenses = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
       
-      // Pending balance = Hire Cost - (Advances + Expenses)
-      const pendingBalance = totalHireCost - (totalAdvances + totalExpenses);
+      // Get commission
+      let commission = trip.commissionAmount || 0;
+      if (trip.commissionType === 'to_fleet_owner') {
+        commission = -commission; // Negative means we owe more to fleet owner
+      }
       
-      // Only include if there's a pending balance
+      // Get POD balance
+      const podBalance = trip.podBalance || 0;
+      
+      // Formula: (Hire + Expenses) - Commission - POD - Advances
+      const totalAmount = totalHireCost + totalExpenses;
+      const pendingBalance = totalAmount - commission - podBalance - totalAdvances;
+      
+      // Only include if there's a pending balance > 0
       if (pendingBalance > 0) {
         if (!fleetPendingMap.has(fleetOwnerId)) {
           fleetPendingMap.set(fleetOwnerId, {

@@ -23,7 +23,7 @@ import {
   Search,
   Calendar
 } from 'lucide-react';
-import { tripAPI, tripAdvanceAPI, tripExpenseAPI } from '@/lib/api';
+import { tripAPI, tripAdvanceAPI, tripExpenseAPI, fleetOwnerAPI } from '@/lib/api';
 import { toast } from 'sonner';
 import html2canvas from 'html2canvas';
 
@@ -66,96 +66,35 @@ export default function FleetOwnerViewModal({ fleetOwner, isOpen, onClose }) {
     try {
       setLoading(true);
       
-      // Fetch all trips
-      const tripsResponse = await tripAPI.getAll();
-      const allTrips = tripsResponse.data.data;
+      // Use the new statement API endpoint
+      const response = await fleetOwnerAPI.getStatement(fleetOwner._id);
+      const { trips: tripsWithDetails, stats: calculatedStats } = response.data.data;
       
-      // Filter trips for this fleet owner
-      const fleetOwnerTrips = allTrips.filter(trip => 
-        trip.vehicleId?.fleetOwnerId?._id === fleetOwner._id && 
-        trip.vehicleId?.ownershipType === 'fleet_owner' &&
-        trip.isActive
-      );
-      
-      // Fetch advances for each trip
+      // Extract advances and expenses from trips
       const advancesData = {};
       const expensesData = {};
       const advancesList = [];
-      let totalHire = 0;
-      let totalExpenses = 0;
-      let totalCommission = 0;
-      let advancesPaid = 0;
-      let totalPOD = 0;
-      let podPending = 0;
       
-      for (const trip of fleetOwnerTrips) {
-        try {
-          const advanceResponse = await tripAdvanceAPI.getByTrip(trip._id);
-          const tripAdvances = advanceResponse.data.data || [];
-          advancesData[trip._id] = tripAdvances;
-          
-          // Fetch trip expenses
-          const expensesResponse = await tripExpenseAPI.getByTrip(trip._id);
-          const tripExpenses = expensesResponse.data.data || [];
-          expensesData[trip._id] = tripExpenses;
-          
-          // Add trip info to each advance for display
-          tripAdvances.forEach(adv => {
-            advancesList.push({
-              ...adv,
-              tripNumber: trip.tripNumber,
-              vehicleNumber: trip.vehicleId?.vehicleNumber,
-              loadDate: trip.loadDate
-            });
+      tripsWithDetails.forEach(trip => {
+        advancesData[trip._id] = trip.advances || [];
+        expensesData[trip._id] = trip.expenses || [];
+        
+        // Add trip info to each advance for display
+        (trip.advances || []).forEach(adv => {
+          advancesList.push({
+            ...adv,
+            tripNumber: trip.tripNumber,
+            vehicleNumber: trip.vehicleId?.vehicleNumber,
+            loadDate: trip.loadDate
           });
-          
-          const tripAdvanceTotal = tripAdvances.reduce((sum, adv) => sum + (adv.amount || 0), 0);
-          advancesPaid += tripAdvanceTotal;
-          
-          // Calculate trip amount (hire cost)
-          const hireTotal = trip.clients?.reduce((sum, c) => sum + (c.truckHireCost || 0), 0) || 0;
-          totalHire += hireTotal;
-          
-          const expensesTotal = tripExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
-          totalExpenses += expensesTotal;
-          
-          // Get commission
-          const commission = trip.commissionAmount || 0;
-          // If commission is from fleet owner, it's income (+), if to fleet owner, it's expense (-)
-          if (trip.commissionType === 'from_fleet_owner') {
-            totalCommission += commission; // This reduces what we owe to fleet owner
-          } else if (trip.commissionType === 'to_fleet_owner') {
-            totalCommission -= commission; // This increases what we owe to fleet owner
-          }
-          
-          totalPOD += (trip.podBalance || 0);
-          
-        } catch (error) {
-          advancesData[trip._id] = [];
-          expensesData[trip._id] = [];
-        }
-      }
+        });
+      });
       
-      // Formula: (Hire + Expenses) - Commission - POD - Advances
-      const totalAmount = totalHire + totalExpenses;
-      podPending = totalPOD;
-      const pendingAmount = totalAmount - totalCommission - totalPOD - advancesPaid;
-      
-      setTrips(fleetOwnerTrips);
+      setTrips(tripsWithDetails);
       setAdvances(advancesData);
       setExpenses(expensesData);
       setAllAdvances(advancesList);
-      setStats({
-        totalAmount,
-        totalHire,
-        totalExpenses,
-        advancesPaid,
-        pendingAmount,
-        totalPOD,
-        podPending,
-        totalCommission,
-        totalTrips: fleetOwnerTrips.length
-      });
+      setStats(calculatedStats);
       
     } catch (error) {
       console.error('Error loading fleet owner data:', error);
@@ -360,20 +299,23 @@ export default function FleetOwnerViewModal({ fleetOwner, isOpen, onClose }) {
               getFilteredTrips().map((trip) => {
                 const tripAdvances = advances[trip._id] || [];
                 const tripExpenses = expenses[trip._id] || [];
-                const advanceTotal = tripAdvances.reduce((sum, adv) => sum + (adv.amount || 0), 0);
-                const hireTotal = trip.clients?.reduce((sum, c) => sum + (c.truckHireCost || 0), 0) || 0;
-                const expensesTotal = tripExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
                 
-                // Commission calculation
-                let commission = trip.commissionAmount || 0;
-                if (trip.commissionType === 'to_fleet_owner') {
-                  commission = -commission; // Negative means we owe more to fleet owner
+                // Use calculations from backend if available
+                const calculations = trip.calculations || {
+                  hireTotal: trip.clients?.reduce((sum, c) => sum + (c.truckHireCost || 0), 0) || 0,
+                  expensesTotal: tripExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0),
+                  advancesTotal: tripAdvances.reduce((sum, adv) => sum + (adv.amount || 0), 0),
+                  commission: trip.commissionType === 'to_fleet_owner' ? -(trip.commissionAmount || 0) : (trip.commissionAmount || 0),
+                  podBalance: trip.podBalance || 0,
+                  pending: 0
+                };
+                
+                // Recalculate pending if not provided
+                if (!trip.calculations) {
+                  calculations.pending = (calculations.hireTotal + calculations.expensesTotal) - calculations.commission - calculations.podBalance - calculations.advancesTotal;
                 }
                 
-                const podBalance = trip.podBalance || 0;
-                
-                // Formula: (Hire + Expenses) - Commission - POD - Advances
-                const pending = (hireTotal + expensesTotal) - commission - podBalance - advanceTotal;
+                const { hireTotal, expensesTotal, advancesTotal, commission, podBalance, pending } = calculations;
                 
                 return (
                   <div key={trip._id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
@@ -421,7 +363,7 @@ export default function FleetOwnerViewModal({ fleetOwner, isOpen, onClose }) {
                       </div>
                       <div className="bg-green-50 p-2 rounded">
                         <p className="text-xs text-green-600">Advances</p>
-                        <p className="font-bold text-green-700">{formatCurrency(advanceTotal)}</p>
+                        <p className="font-bold text-green-700">{formatCurrency(advancesTotal)}</p>
                       </div>
                       <div className="bg-purple-50 p-2 rounded">
                         <p className="text-xs text-purple-600">POD Balance</p>
@@ -439,8 +381,32 @@ export default function FleetOwnerViewModal({ fleetOwner, isOpen, onClose }) {
                         <div className="space-y-1">
                           {tripAdvances.map((adv) => (
                             <div key={adv._id} className="flex items-center justify-between text-sm bg-green-50 p-2 rounded">
-                              <span className="text-gray-700">{formatDate(adv.createdAt)}</span>
+                              <div>
+                                <span className="text-gray-700">{formatDate(adv.createdAt)}</span>
+                                {adv.description && (
+                                  <span className="text-xs text-gray-500 ml-2">- {adv.description}</span>
+                                )}
+                              </div>
                               <span className="font-semibold text-green-700">{formatCurrency(adv.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {tripExpenses.length > 0 && (
+                      <div className="border-t pt-3 mt-3">
+                        <p className="text-xs font-semibold text-gray-700 mb-2">Expense History:</p>
+                        <div className="space-y-1">
+                          {tripExpenses.map((exp) => (
+                            <div key={exp._id} className="flex items-center justify-between text-sm bg-yellow-50 p-2 rounded">
+                              <div>
+                                <span className="text-gray-700">{formatDate(exp.createdAt)}</span>
+                                {exp.description && (
+                                  <span className="text-xs text-gray-500 ml-2">- {exp.description}</span>
+                                )}
+                              </div>
+                              <span className="font-semibold text-yellow-700">{formatCurrency(exp.amount)}</span>
                             </div>
                           ))}
                         </div>
@@ -589,9 +555,20 @@ export default function FleetOwnerViewModal({ fleetOwner, isOpen, onClose }) {
                   ) : (
                     getFilteredTrips().map((trip, index) => {
                       const tripAdvances = advances[trip._id] || [];
-                      const advanceTotal = tripAdvances.reduce((sum, adv) => sum + (adv.amount || 0), 0);
-                      const hireTotal = trip.clients?.reduce((sum, c) => sum + (c.truckHireCost || 0), 0) || 0;
-                      const pending = hireTotal - advanceTotal;
+                      
+                      // Use calculations from backend if available
+                      const calculations = trip.calculations || {
+                        hireTotal: trip.clients?.reduce((sum, c) => sum + (c.truckHireCost || 0), 0) || 0,
+                        advancesTotal: tripAdvances.reduce((sum, adv) => sum + (adv.amount || 0), 0),
+                        podBalance: trip.podBalance || 0,
+                        pending: 0
+                      };
+                      
+                      if (!trip.calculations) {
+                        calculations.pending = calculations.hireTotal - calculations.advancesTotal;
+                      }
+                      
+                      const { hireTotal, advancesTotal, podBalance, pending } = calculations;
                       
                       return (
                         <tr key={trip._id} className="hover:bg-blue-50 transition-colors">
@@ -627,10 +604,10 @@ export default function FleetOwnerViewModal({ fleetOwner, isOpen, onClose }) {
                             <span className="font-bold text-gray-900 text-base">{formatCurrency(hireTotal)}</span>
                           </td>
                           <td className="px-6 py-4 text-right">
-                            <span className="font-semibold text-purple-600">{formatCurrency(trip.podBalance)}</span>
+                            <span className="font-semibold text-purple-600">{formatCurrency(podBalance)}</span>
                           </td>
                           <td className="px-6 py-4 text-right">
-                            <span className="font-bold text-green-600 text-base">{formatCurrency(advanceTotal)}</span>
+                            <span className="font-bold text-green-600 text-base">{formatCurrency(advancesTotal)}</span>
                           </td>
                           <td className="px-6 py-4 text-right">
                             <span className={`font-bold text-base ${pending > 0 ? 'text-red-600' : 'text-gray-500'}`}>

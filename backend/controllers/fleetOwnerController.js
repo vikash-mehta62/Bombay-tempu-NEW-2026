@@ -238,3 +238,116 @@ exports.getFleetOwnerVehicles = async (req, res) => {
     });
   }
 };
+
+/**
+ * @desc    Get fleet owner statement with complete trip details
+ * @route   GET /api/fleet-owners/:id/statement
+ * @access  Private
+ */
+exports.getFleetOwnerStatement = async (req, res) => {
+  try {
+    const Trip = require('../models/Trip');
+    const TripAdvance = require('../models/TripAdvance');
+    const TripExpense = require('../models/TripExpense');
+    
+    // Get all vehicles for this fleet owner
+    const vehicles = await Vehicle.find({ 
+      fleetOwnerId: req.params.id,
+      isActive: true 
+    }).select('_id');
+    
+    const vehicleIds = vehicles.map(v => v._id);
+    
+    // Get all trips for these vehicles
+    const trips = await Trip.find({
+      vehicleId: { $in: vehicleIds },
+      isActive: true
+    })
+    .populate({
+      path: 'vehicleId',
+      select: 'vehicleNumber vehicleType brand model ownershipType',
+      populate: {
+        path: 'fleetOwnerId',
+        select: 'fullName contact'
+      }
+    })
+    .populate('driverId', 'fullName contact')
+    .populate('clients.clientId', 'fullName companyName contact')
+    .populate('clients.originCity', 'cityName state')
+    .populate('clients.destinationCity', 'cityName state')
+    .populate('podHistory.submittedBy', 'fullName username')
+    .sort({ loadDate: -1 });
+    
+    // Get advances and expenses for each trip
+    const tripsWithDetails = await Promise.all(trips.map(async (trip) => {
+      const advances = await TripAdvance.find({
+        tripId: trip._id,
+        isActive: true
+      })
+      .populate('createdBy', 'fullName username')
+      .sort({ createdAt: -1 });
+      
+      const expenses = await TripExpense.find({
+        tripId: trip._id,
+        isActive: true
+      })
+      .populate('createdBy', 'fullName username')
+      .sort({ createdAt: -1 });
+      
+      // Calculate totals
+      const hireTotal = trip.clients?.reduce((sum, c) => sum + (c.truckHireCost || 0), 0) || 0;
+      const expensesTotal = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
+      const advancesTotal = advances.reduce((sum, adv) => sum + (adv.amount || 0), 0);
+      
+      let commission = trip.commissionAmount || 0;
+      if (trip.commissionType === 'to_fleet_owner') {
+        commission = -commission;
+      }
+      
+      const podBalance = trip.podBalance || 0;
+      const pending = (hireTotal + expensesTotal) - commission - podBalance - advancesTotal;
+      
+      return {
+        ...trip.toObject(),
+        advances,
+        expenses,
+        calculations: {
+          hireTotal,
+          expensesTotal,
+          advancesTotal,
+          commission,
+          podBalance,
+          pending
+        }
+      };
+    }));
+    
+    // Calculate overall stats
+    const stats = {
+      totalTrips: trips.length,
+      totalHire: tripsWithDetails.reduce((sum, t) => sum + t.calculations.hireTotal, 0),
+      totalExpenses: tripsWithDetails.reduce((sum, t) => sum + t.calculations.expensesTotal, 0),
+      totalCommission: tripsWithDetails.reduce((sum, t) => sum + t.calculations.commission, 0),
+      totalPOD: tripsWithDetails.reduce((sum, t) => sum + t.calculations.podBalance, 0),
+      advancesPaid: tripsWithDetails.reduce((sum, t) => sum + t.calculations.advancesTotal, 0),
+      pendingAmount: tripsWithDetails.reduce((sum, t) => sum + t.calculations.pending, 0)
+    };
+    
+    stats.totalAmount = stats.totalHire + stats.totalExpenses;
+    stats.podPending = stats.totalPOD;
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        trips: tripsWithDetails,
+        stats
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching fleet owner statement:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
