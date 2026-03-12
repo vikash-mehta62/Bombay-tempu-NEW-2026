@@ -14,8 +14,8 @@ export default function VehicleDocumentUpload({ vehicle, onUpdate, isAdminView =
 
   const documents = [
     { type: 'registration', label: 'Registration Certificate', date: vehicleData.registrationDate },
-    { type: 'registrationFront', label: 'Registration Certificate Front', date: vehicleData.registrationDate },
-    { type: 'registrationBack', label: 'Registration Certificate Back', date: vehicleData.registrationDate },
+    // { type: 'registrationFront', label: 'Registration Certificate Front', date: vehicleData.registrationDate },
+    // { type: 'registrationBack', label: 'Registration Certificate Back', date: vehicleData.registrationDate },
     { type: 'fitness', label: 'Fitness Certificate', date: vehicleData.fitnessExpiryDate },
     { type: 'insurance', label: 'Insurance', date: vehicleData.insuranceExpiryDate },
     { type: 'puc', label: 'PUC Certificate', date: vehicleData.pucExpiryDate },
