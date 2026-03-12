@@ -17,6 +17,8 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
   const [advances, setAdvances] = useState([]);
   const [generalExpenses, setGeneralExpenses] = useState([]);
   const [transactionTab, setTransactionTab] = useState('all'); // 'all', 'income', 'expense', 'advance'
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [stats, setStats] = useState({
     totalIncome: 0,
     totalExpenses: 0,
@@ -26,18 +28,39 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
     tripCount: 0
   });
 
+  const months = [
+    { value: 1, label: 'January' },
+    { value: 2, label: 'February' },
+    { value: 3, label: 'March' },
+    { value: 4, label: 'April' },
+    { value: 5, label: 'May' },
+    { value: 6, label: 'June' },
+    { value: 7, label: 'July' },
+    { value: 8, label: 'August' },
+    { value: 9, label: 'September' },
+    { value: 10, label: 'October' },
+    { value: 11, label: 'November' },
+    { value: 12, label: 'December' }
+  ];
+
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
   useEffect(() => {
     if (vehicle?._id) {
       loadVehicleData();
     }
-  }, [vehicle]);
+  }, [vehicle, selectedMonth, selectedYear]);
 
   const loadVehicleData = async () => {
     try {
       setLoading(true);
       
-      // Fetch all data from the vehicle expenses endpoint
-      const vehicleExpensesResponse = await expenseAPI.getByVehicle(vehicle._id);
+      // Fetch all data from the vehicle expenses endpoint with filters
+      const vehicleExpensesResponse = await expenseAPI.getByVehicle(vehicle._id, {
+        month: selectedMonth,
+        year: selectedYear
+      });
       
       console.log('Vehicle Expenses Response:', vehicleExpensesResponse.data);
       
@@ -133,7 +156,8 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `${vehicle.vehicleNumber}_expenses_${new Date().toISOString().split('T')[0]}.csv`;
+      const monthLabel = months.find(m => m.value === selectedMonth)?.label || selectedMonth;
+      link.download = `${vehicle.vehicleNumber}_expenses_${monthLabel}_${selectedYear}.csv`;
       link.click();
       
       toast.success('CSV exported successfully');
@@ -146,13 +170,14 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
   const exportToPDF = () => {
     try {
       const doc = new jsPDF();
+      const monthLabel = months.find(m => m.value === selectedMonth)?.label || selectedMonth;
       
       // Title
       doc.setFontSize(18);
-      doc.text(`Vehicle Expense Report`, 14, 20);
+      doc.text(`Vehicle Expense Report - ${monthLabel} ${selectedYear}`, 14, 20);
       doc.setFontSize(12);
       doc.text(`Vehicle: ${vehicle.vehicleNumber}`, 14, 28);
-      doc.text(`Date: ${new Date().toLocaleDateString('en-IN')}`, 14, 35);
+      doc.text(`Report Generated: ${new Date().toLocaleDateString('en-IN')}`, 14, 35);
       
       // Summary
       doc.setFontSize(14);
@@ -213,7 +238,7 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
         headStyles: { fillColor: [59, 130, 246] }
       });
       
-      doc.save(`${vehicle.vehicleNumber}_expenses_${new Date().toISOString().split('T')[0]}.pdf`);
+      doc.save(`${vehicle.vehicleNumber}_expenses_${monthLabel}_${selectedYear}.pdf`);
       toast.success('PDF exported successfully');
     } catch (error) {
       console.error('Error exporting PDF:', error);
@@ -221,17 +246,64 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
     }
   };
 
-  if (loading) {
+  if (loading && trips.length === 0 && expenses.length === 0 && advances.length === 0 && generalExpenses.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader className="w-8 h-8 text-blue-600 animate-spin" />
-        <span className="ml-3 text-gray-600">Loading vehicle data...</span>
+      <div className="flex flex-col items-center justify-center py-12 space-y-4">
+        <Loader className="w-10 h-10 text-blue-600 animate-spin" />
+        <p className="text-gray-600 font-medium">Loading vehicle data...</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      {/* Month/Year Filter */}
+      <div className="flex flex-wrap items-center gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+        <div className="flex items-center space-x-2">
+          <Calendar className="w-5 h-5 text-blue-600" />
+          <span className="text-sm font-semibold text-gray-700">Filter by Month:</span>
+        </div>
+        
+        <div className="flex items-center space-x-3">
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+            className="input py-1.5 px-3 text-sm min-w-[120px]"
+          >
+            {months.map(m => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
+          </select>
+          
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+            className="input py-1.5 px-3 text-sm min-w-[100px]"
+          >
+            {years.map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+          
+          <button
+            onClick={() => {
+              setSelectedMonth(new Date().getMonth() + 1);
+              setSelectedYear(new Date().getFullYear());
+            }}
+            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+          >
+            Current Month
+          </button>
+        </div>
+        
+        {loading && (
+          <div className="flex items-center space-x-2 text-blue-600 ml-auto">
+            <Loader className="w-4 h-4 animate-spin" />
+            <span className="text-xs font-medium">Updating...</span>
+          </div>
+        )}
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">

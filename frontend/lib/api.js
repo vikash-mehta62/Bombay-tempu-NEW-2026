@@ -131,7 +131,7 @@ export const cityAPI = {
 // Expense API
 export const expenseAPI = {
   getAll: (params) => api.get('/expenses', { params }),
-  getByVehicle: (vehicleId) => api.get(`/expenses/vehicle/${vehicleId}`),
+  getByVehicle: (vehicleId, params) => api.get(`/expenses/vehicle/${vehicleId}`, { params }),
   getStats: (params) => api.get('/expenses/stats', { params }),
   create: (data) => api.post('/expenses', data),
   delete: (id) => api.delete(`/expenses/${id}`),

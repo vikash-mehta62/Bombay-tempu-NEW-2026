@@ -119,35 +119,49 @@ exports.getExpensesByVehicle = async (req, res) => {
     const TripExpense = require('../models/TripExpense');
     const TripAdvance = require('../models/TripAdvance');
     
+    const { month, year } = req.query;
+    let generalExpenseFilter = { vehicleId: req.params.vehicleId, isActive: true };
+    let tripFilter = { vehicleId: req.params.vehicleId, isActive: true };
+
+    if (month && year) {
+      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+      
+      generalExpenseFilter.date = { $gte: startDate, $lte: endDate };
+      tripFilter.loadDate = { $gte: startDate, $lte: endDate };
+    }
+
     // Get general vehicle expenses
-    const generalExpenses = await Expense.find({ 
-      vehicleId: req.params.vehicleId,
-      isActive: true 
-    })
+    const generalExpenses = await Expense.find(generalExpenseFilter)
     .populate('createdBy', 'fullName username')
     .sort({ date: -1 });
 
     // Get all trips for this vehicle
-    const trips = await Trip.find({
-      vehicleId: req.params.vehicleId,
-      isActive: true
-    }).select('_id tripNumber loadDate totalClientRevenue');
+    const trips = await Trip.find(tripFilter).select('_id tripNumber loadDate totalClientRevenue clients');
 
     // Get trip expenses for all vehicle trips
     const tripIds = trips.map(t => t._id);
-    const tripExpenses = await TripExpense.find({
-      tripId: { $in: tripIds },
-      isActive: true
-    })
+    let tripExpenseFilter = { tripId: { $in: tripIds }, isActive: true };
+    if (month && year) {
+      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+      tripExpenseFilter.date = { $gte: startDate, $lte: endDate };
+    }
+
+    const tripExpenses = await TripExpense.find(tripExpenseFilter)
     .populate('tripId', 'tripNumber')
     .populate('createdBy', 'fullName username')
     .sort({ date: -1 });
 
     // Get trip advances for all vehicle trips
-    const tripAdvances = await TripAdvance.find({
-      tripId: { $in: tripIds },
-      isActive: true
-    })
+    let tripAdvanceFilter = { tripId: { $in: tripIds }, isActive: true };
+    if (month && year) {
+      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+      tripAdvanceFilter.date = { $gte: startDate, $lte: endDate };
+    }
+
+    const tripAdvances = await TripAdvance.find(tripAdvanceFilter)
     .populate('tripId', 'tripNumber')
     .populate('driverId', 'fullName')
     .populate('fleetOwnerId', 'fullName')
