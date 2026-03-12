@@ -309,13 +309,10 @@ export const generateClientBalanceStatement = async (client, trips = [], transac
           </thead>
           <tbody>
             ${trips.map((trip, index) => {
-              // Running balance calculation: Fright - Paid + Expenses (cumulative)
-              const runningBalance = trips.slice(0, index + 1).reduce((sum, t) => {
-                const fright = t.clientRate || t.total || 0;
-                const paid = t.paid || 0;
-                const expenses = t.expenses || 0;
-                return sum + (fright - paid + expenses);
-              }, 0);
+              // Individual trip balance calculation: Fright - Paid (not cumulative)
+              const fright = trip.clientRate || trip.total || 0;
+              const paid = trip.paid || 0;
+              const tripBalance = fright - paid;
               
               // Get vehicle number from multiple possible sources
               const vehicleNo = trip.vehicleNumber || 
@@ -324,14 +321,17 @@ export const generateClientBalanceStatement = async (client, trips = [], transac
                                trip.vehicleNo ||
                                'N/A';
               
+              // Use loadDate from trip (backend already sends client-specific loadDate)
+              const loadDate = trip.loadDate;
+              
               return `
                 <tr>
                   <td style="border: 1px solid #999; padding: 5px; text-align: center;">${trip.tripNumber || '-'}</td>
-                  <td style="border: 1px solid #999; padding: 5px; text-align: center;">${new Date(trip.loadDate).toLocaleDateString('en-GB')}</td>
+                  <td style="border: 1px solid #999; padding: 5px; text-align: center;">${new Date(loadDate).toLocaleDateString('en-GB')}</td>
                   <td style="border: 1px solid #999; padding: 5px; text-align: center;">${vehicleNo}</td>
-                  <td style="border: 1px solid #999; padding: 5px; text-align: center;">${trip.clientRate || trip.total || 0}</td>
-                  <td style="border: 1px solid #999; padding: 5px; text-align: center;">${trip.paid || 0}</td>
-                  <td style="border: 1px solid #999; padding: 5px; text-align: center;">${runningBalance}</td>
+                  <td style="border: 1px solid #999; padding: 5px; text-align: center;">${fright}</td>
+                  <td style="border: 1px solid #999; padding: 5px; text-align: center;">${paid}</td>
+                  <td style="border: 1px solid #999; padding: 5px; text-align: center;">${tripBalance}</td>
                 </tr>
               `;
             }).join('')}

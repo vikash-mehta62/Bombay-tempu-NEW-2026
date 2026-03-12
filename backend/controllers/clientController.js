@@ -339,7 +339,7 @@ exports.getClientStatement = async (req, res) => {
         tripId: trip._id,
         tripNumber: trip.tripNumber,
         tripStatus: trip.status,
-        loadDate: trip.loadDate,
+        loadDate: clientData.loadDate || trip.loadDate, // Use client-specific load date
         vehicleNumber: trip.vehicleId?.vehicleNumber || 'N/A',
         vehicleId: trip.vehicleId,
         from: trip.from,

@@ -14,12 +14,18 @@ export default function VehicleDocumentUpload({ vehicle, onUpdate, isAdminView =
 
   const documents = [
     { type: 'registration', label: 'Registration Certificate', date: vehicleData.registrationDate },
+    { type: 'registrationFront', label: 'Registration Certificate Front', date: vehicleData.registrationDate },
+    { type: 'registrationBack', label: 'Registration Certificate Back', date: vehicleData.registrationDate },
     { type: 'fitness', label: 'Fitness Certificate', date: vehicleData.fitnessExpiryDate },
     { type: 'insurance', label: 'Insurance', date: vehicleData.insuranceExpiryDate },
     { type: 'puc', label: 'PUC Certificate', date: vehicleData.pucExpiryDate },
     { type: 'permit', label: 'Permit', date: vehicleData.permitExpiryDate },
     { type: 'nationalPermit', label: 'National Permit', date: vehicleData.nationalPermitExpiryDate },
-    { type: 'tax', label: 'Tax Receipt', date: vehicleData.taxValidUptoDate }
+    { type: 'tax', label: 'Tax Receipt', date: vehicleData.taxValidUptoDate },
+    { type: 'aadharFront', label: 'Aadhar Card Front', date: null },
+    { type: 'aadharBack', label: 'Aadhar Card Back', date: null },
+    { type: 'pan', label: 'PAN Card', date: null },
+    { type: 'tds', label: 'TDS Form', date: null }
   ];
 
   const reloadVehicleData = async () => {

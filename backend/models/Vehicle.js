@@ -76,6 +76,16 @@ const vehicleSchema = new mongoose.Schema({
     publicId: String,
     uploadedAt: Date
   },
+  registrationDocumentFront: {
+    url: String,
+    publicId: String,
+    uploadedAt: Date
+  },
+  registrationDocumentBack: {
+    url: String,
+    publicId: String,
+    uploadedAt: Date
+  },
   fitnessExpiryDate: Date,
   fitnessDocument: {
     url: String,
@@ -108,6 +118,26 @@ const vehicleSchema = new mongoose.Schema({
   },
   taxValidUptoDate: Date,
   taxDocument: {
+    url: String,
+    publicId: String,
+    uploadedAt: Date
+  },
+  aadharCardFront: {
+    url: String,
+    publicId: String,
+    uploadedAt: Date
+  },
+  aadharCardBack: {
+    url: String,
+    publicId: String,
+    uploadedAt: Date
+  },
+  panCard: {
+    url: String,
+    publicId: String,
+    uploadedAt: Date
+  },
+  tdsForm: {
     url: String,
     publicId: String,
     uploadedAt: Date

@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import CollectionMemoModal from '@/components/CollectionMemoModal';
 import BalanceMemoModal from '@/components/BalanceMemoModal';
 import ReceiptPreviewModal from '@/components/ReceiptPreviewModal';
+import TripFormModal from '@/components/TripFormModal';
 import { generateClientReceipt } from '@/utils/receiptGenerator';
 import { 
   ArrowLeft, 
@@ -98,6 +99,10 @@ export default function TripDetailsPage() {
   const [showBalanceMemoModal, setShowBalanceMemoModal] = useState(false);
   const [selectedClientForMemo, setSelectedClientForMemo] = useState(null);
   const [collectionMemos, setCollectionMemos] = useState([]);
+  
+  // Trip Edit Modal state
+  const [showTripEditModal, setShowTripEditModal] = useState(false);
+  const [editingTrip, setEditingTrip] = useState(null);
   const [balanceMemos, setBalanceMemos] = useState([]);
   const [editingMemo, setEditingMemo] = useState(null);
   const [showReceiptPreview, setShowReceiptPreview] = useState(false);
@@ -829,6 +834,17 @@ export default function TripDetailsPage() {
     setShowReceiptPreview(true);
   };
   
+  const handleEditTrip = () => {
+    setEditingTrip(trip);
+    setShowTripEditModal(true);
+  };
+  
+  const handleTripModalClose = () => {
+    setShowTripEditModal(false);
+    setEditingTrip(null);
+    loadTripDetails(); // Reload trip details after edit
+  };
+  
   const getClientPaymentTotal = (clientId) => {
     const payments = clientPayments[clientId] || [];
     return payments.reduce((sum, p) => sum + (p.amount || 0), 0);
@@ -930,7 +946,7 @@ export default function TripDetailsPage() {
             </button>
           )}
           <button
-            onClick={() => router.push(`/dashboard/trips/${params.id}/edit`)}
+            onClick={handleEditTrip}
             className="btn btn-secondary flex items-center space-x-2"
           >
             <Edit className="w-4 h-4" />
@@ -3100,6 +3116,14 @@ export default function TripDetailsPage() {
           </div>
         </div>
       )}
+      
+      {/* Trip Form Modal */}
+      <TripFormModal
+        isOpen={showTripEditModal}
+        onClose={handleTripModalClose}
+        onSuccess={handleTripModalClose}
+        editData={editingTrip}
+      />
     </div>
   );
 }

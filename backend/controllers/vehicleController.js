@@ -492,12 +492,18 @@ exports.uploadDocument = async (req, res) => {
     
     const validDocTypes = [
       'registration',
+      'registrationFront',
+      'registrationBack',
       'fitness',
       'insurance',
       'puc',
       'permit',
       'nationalPermit',
-      'tax'
+      'tax',
+      'aadharFront',
+      'aadharBack',
+      'pan',
+      'tds'
     ];
     
     if (!req.file) {
@@ -578,12 +584,18 @@ exports.deleteDocument = async (req, res) => {
     
     const validDocTypes = [
       'registration',
+      'registrationFront',
+      'registrationBack',
       'fitness',
       'insurance',
       'puc',
       'permit',
       'nationalPermit',
-      'tax'
+      'tax',
+      'aadharFront',
+      'aadharBack',
+      'pan',
+      'tds'
     ];
     
     if (!validDocTypes.includes(documentType)) {
