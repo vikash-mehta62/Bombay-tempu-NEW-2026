@@ -15,7 +15,7 @@ exports.createExpense = async (req, res) => {
       vehicleId: vehicleId || null,
       createdBy: req.user._id,
       isActive: true,
-      createdAt: { $gte: fifteenMinutesAgo }
+      createdAt: { $gte: thirtySecondsAgo }
     });
 
     if (duplicateCheck) {
