@@ -32,6 +32,11 @@ router.get('/pods', reportController.getPODReports);
 // @access  Private (owner, manager, admin)
 router.get('/client-pending', reportController.getClientPendingReport);
 
+// @route   GET /api/reports/client-no-payment
+// @desc    Get clients with zero payments
+// @access  Private (owner, manager, admin)
+router.get('/client-no-payment', reportController.getClientPaymentReport);
+
 // @route   GET /api/reports/fleet-pending
 // @desc    Get fleet owner pending payment report
 // @access  Private (owner, manager, admin)

@@ -147,6 +147,13 @@ const tripSchema = new mongoose.Schema({
     default: 'scheduled'
   },
   
+  // Trip POD Status (overall trip POD status)
+  trip_pod_status: {
+    type: String,
+    enum: ['trip_pod_pending', 'trip_pod_received', 'trip_pod_submitted', 'trip_pod_settled'],
+    default: 'trip_pod_pending'
+  },
+  
   // Additional information
   additionalInstructions: {
     type: String,

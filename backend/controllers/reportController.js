@@ -24,9 +24,13 @@ exports.getReports = async (req, res) => {
       return sum + (trip.profitLoss || 0);
     }, 0);
     
-    // Commission (sum of all trip commissions)
+    // Commission (sum of commissions where commissionType === 'from_fleet_owner')
     const commission = activeTrips.reduce((sum, trip) => {
-      return sum + (trip.commission || 0);
+      // Only count commission if type is 'from_fleet_owner'
+      if (trip.commissionType === 'from_fleet_owner') {
+        return sum + (trip.commissionAmount || 0);
+      }
+      return sum;
     }, 0);
     
     // Trip Difference (Client Rate - Hire Cost) - ONLY for fleet-owned vehicles
@@ -551,115 +555,14 @@ exports.getPODReports = async (req, res) => {
   }
 };
 
-module.exports = exports;
 /**
  * @desc    Get client payment report - clients with no payments
- * @route   GET /api/reports/client-payments
+ * @route   GET /api/reports/client-no-payment
  * @access  Private (owner, manager, admin)
  */
 exports.getClientPaymentReport = async (req, res) => {
   try {
     const ClientPayment = require('../models/ClientPayment');
-    const Client = require('../models/Client');
-    const Vehicle = require('../models/Vehicle');
-
-    // Get all active trips with client and vehicle details
-    const trips = await Trip.find({ isActive: true })
-      .populate('vehicleId', 'vehicleNumber')
-      .populate('clients.clientId', 'fullName companyName')
-      .lean();
-
-    // Get all client payments
-    const payments = await ClientPayment.find({ isActive: true }).lean();
-
-    // Create a map of tripId + clientId -> total payments
-    const paymentMap = {};
-    payments.forEach(payment => {
-      const key = `${payment.tripId}_${payment.clientId}`;
-      paymentMap[key] = (paymentMap[key] || 0) + payment.amount;
-    });
-
-    // Process trips to find clients with no payments
-    const clientReportMap = {};
-
-    trips.forEach(trip => {
-      if (!trip.vehicleId) return;
-
-      trip.clients.forEach(clientInTrip => {
-        if (!clientInTrip.clientId) return;
-
-        const clientId = clientInTrip.clientId._id.toString();
-        const tripId = trip._id.toString();
-        const key = `${tripId}_${clientId}`;
-
-        // Check if this client made any payment for this trip
-        const totalPayments = paymentMap[key] || 0;
-
-        // Only include if no payments made
-        if (totalPayments === 0) {
-          const clientName = clientInTrip.clientId.fullName || clientInTrip.clientId.companyName || 'Unknown';
-          const vehicleNumber = trip.vehicleId.vehicleNumber;
-          const reportKey = `${clientId}_${vehicleNumber}`;
-
-          if (!clientReportMap[reportKey]) {
-            clientReportMap[reportKey] = {
-              clientId,
-              clientName,
-              vehicleNumber,
-              pendingTripCount: 0,
-              pendingBalance: 0,
-              trips: []
-            };
-          }
-
-          clientReportMap[reportKey].pendingTripCount += 1;
-          clientReportMap[reportKey].pendingBalance += clientInTrip.clientRate || 0;
-          clientReportMap[reportKey].trips.push({
-            tripNumber: trip.tripNumber,
-            tripId: trip._id,
-            clientRate: clientInTrip.clientRate || 0
-          });
-        }
-      });
-    });
-
-    // Convert map to array and sort by client name
-    const reportData = Object.values(clientReportMap).sort((a, b) =>
-      a.clientName.localeCompare(b.clientName)
-    );
-
-    // Calculate totals
-    const totals = {
-      totalClients: reportData.length,
-      totalPendingTrips: reportData.reduce((sum, item) => sum + item.pendingTripCount, 0),
-      totalPendingBalance: reportData.reduce((sum, item) => sum + item.pendingBalance, 0)
-    };
-
-    res.status(200).json({
-      success: true,
-      data: {
-        clients: reportData,
-        totals
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching client payment report:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
-
-/**
- * @desc    Get client payment report - clients with no payments
- * @route   GET /api/reports/client-payments
- * @access  Private (owner, manager, admin)
- */
-exports.getClientPaymentReport = async (req, res) => {
-  try {
-    const ClientPayment = require('../models/ClientPayment');
-    const Client = require('../models/Client');
     const Vehicle = require('../models/Vehicle');
     
     // Get all active trips with client and vehicle details
@@ -730,15 +633,15 @@ exports.getClientPaymentReport = async (req, res) => {
     // Calculate totals
     const totals = {
       totalClients: reportData.length,
-      totalPendingTrips: reportData.reduce((sum, item) => sum + item.pendingTripCount, 0),
-      totalPendingBalance: reportData.reduce((sum, item) => sum + item.pendingBalance, 0)
+      totalTripsWithPending: reportData.reduce((sum, item) => sum + item.pendingTripCount, 0),
+      grandTotalPending: reportData.reduce((sum, item) => sum + item.pendingBalance, 0)
     };
     
     res.status(200).json({
       success: true,
       data: {
         clients: reportData,
-        totals
+        summary: totals
       }
     });
   } catch (error) {
@@ -760,114 +663,6 @@ exports.getClientPendingReport = async (req, res) => {
     const ClientPayment = require('../models/ClientPayment');
     const ClientExpense = require('../models/ClientExpense');
     const Vehicle = require('../models/Vehicle');
-
-    // Get all active trips with client details
-    const trips = await Trip.find({ isActive: true })
-      .populate('vehicleId', 'vehicleNumber')
-      .populate('clients.clientId', 'fullName companyName')
-      .lean();
-
-    // Group by client and calculate pending amounts
-    const clientPendingMap = new Map();
-
-    for (const trip of trips) {
-      for (const client of trip.clients) {
-        const clientId = client.clientId?._id?.toString();
-        if (!clientId) continue;
-
-        const clientName = client.clientId?.fullName || client.clientId?.companyName || 'Unknown';
-        const vehicleNumber = trip.vehicleId?.vehicleNumber || 'N/A';
-
-        // Calculate total amount due for this client in this trip
-        const clientRate = client.clientRate || 0;
-
-        // Get client expenses for this trip
-        const clientExpenses = await ClientExpense.find({
-          tripId: trip._id,
-          clientId: clientId,
-          isActive: true
-        }).lean();
-
-        const totalExpenses = clientExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
-
-        // Get client payments for this trip
-        const clientPayments = await ClientPayment.find({
-          tripId: trip._id,
-          clientId: clientId,
-          isActive: true
-        }).lean();
-
-        const totalPayments = clientPayments.reduce((sum, pay) => sum + (pay.amount || 0), 0);
-
-        // Total due = Client Rate + Expenses - Payments
-        const totalDue = clientRate + totalExpenses;
-        const pendingBalance = totalDue - totalPayments;
-
-        // Only include if there's a pending balance
-        if (pendingBalance > 0) {
-          if (!clientPendingMap.has(clientId)) {
-            clientPendingMap.set(clientId, {
-              clientId,
-              clientName,
-              trips: [],
-              totalPendingCount: 0,
-              totalPendingAmount: 0
-            });
-          }
-
-          const clientData = clientPendingMap.get(clientId);
-          clientData.trips.push({
-            tripId: trip._id,
-            tripNumber: trip.tripNumber,
-            vehicleNumber,
-            pendingBalance
-          });
-          clientData.totalPendingCount += 1;
-          clientData.totalPendingAmount += pendingBalance;
-        }
-      }
-    }
-
-    // Convert map to array and sort by pending amount (highest first)
-    const clientPendingData = Array.from(clientPendingMap.values())
-      .sort((a, b) => b.totalPendingAmount - a.totalPendingAmount);
-
-    // Calculate grand total
-    const grandTotal = clientPendingData.reduce((sum, client) => sum + client.totalPendingAmount, 0);
-    const totalTripsCount = clientPendingData.reduce((sum, client) => sum + client.totalPendingCount, 0);
-
-    res.status(200).json({
-      success: true,
-      data: {
-        clients: clientPendingData,
-        summary: {
-          totalClients: clientPendingData.length,
-          totalTripsWithPending: totalTripsCount,
-          grandTotalPending: grandTotal
-        }
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching client pending report:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
-
-
-
-/**
- * @desc    Get client pending payment report
- * @route   GET /api/reports/client-pending
- * @access  Private (owner, manager, admin)
- */
-exports.getClientPendingReport = async (req, res) => {
-  try {
-    const ClientPayment = require('../models/ClientPayment');
-    const ClientExpense = require('../models/ClientExpense');
-    const Vehicle = require('../models/Vehicle');
     
     // Get all active trips with client details
     const trips = await Trip.find({ isActive: true })
@@ -907,12 +702,12 @@ exports.getClientPendingReport = async (req, res) => {
         
         const totalPayments = clientPayments.reduce((sum, pay) => sum + (pay.amount || 0), 0);
         
-        // Total due = Client Rate + Expenses - Payments
+        // Total due = Client Rate + Expenses
         const totalDue = clientRate + totalExpenses;
         const pendingBalance = totalDue - totalPayments;
         
-        // Only include if there's a pending balance
-        if (pendingBalance > 0) {
+        // Only include if there's a pending balance AND client has made ZERO payments
+        if (pendingBalance > 0 && totalPayments === 0) {
           if (!clientPendingMap.has(clientId)) {
             clientPendingMap.set(clientId, {
               clientId,
@@ -963,7 +758,6 @@ exports.getClientPendingReport = async (req, res) => {
     });
   }
 };
-
 
 /**
  * @desc    Get fleet owner pending payment report
@@ -1085,3 +879,5 @@ exports.getFleetPendingReport = async (req, res) => {
     });
   }
 };
+
+module.exports = exports;

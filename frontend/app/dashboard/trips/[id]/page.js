@@ -2920,6 +2920,28 @@ export default function TripDetailsPage() {
               {/* Submission Form */}
               <form onSubmit={handleSubmitActualPOD} className="space-y-4 mb-6">
                 <div>
+                  <label className="label">Trip POD Status</label>
+                  <select 
+                    className="input"
+                    value={trip.trip_pod_status || 'trip_pod_pending'}
+                    onChange={async (e) => {
+                      try {
+                        await tripAPI.updatePodStatus(trip._id, e.target.value);
+                        toast.success('Trip POD status updated');
+                        loadTripDetails();
+                      } catch (error) {
+                        toast.error('Failed to update status');
+                      }
+                    }}
+                  >
+                    <option value="trip_pod_pending">🟠 Trip POD Pending</option>
+                    <option value="trip_pod_received">📥 Trip POD Received</option>
+                    <option value="trip_pod_submitted">📤 Trip POD Submitted</option>
+                    <option value="trip_pod_settled">✅ Trip POD Settled</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">Current status of POD for this trip</p>
+                </div>
+                <div>
                   <label className="label">Submit POD Amount (₹)</label>
                   <input
                     type="number"

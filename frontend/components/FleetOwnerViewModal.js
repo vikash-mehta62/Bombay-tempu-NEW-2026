@@ -451,6 +451,7 @@ export default function FleetOwnerViewModal({ fleetOwner, isOpen, onClose }) {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">TRIP NUMBER</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">VEHICLE</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">DATE</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">POD STATUS</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">TOTAL POD</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">POD GIVEN</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">POD REMAINING</th>
@@ -459,13 +460,13 @@ export default function FleetOwnerViewModal({ fleetOwner, isOpen, onClose }) {
                   <tbody className="divide-y divide-gray-200">
                     {loading ? (
                       <tr>
-                        <td colSpan="6" className="px-4 py-8 text-center">
+                        <td colSpan="7" className="px-4 py-8 text-center">
                           <Loader className="w-6 h-6 animate-spin text-blue-600 mx-auto" />
                         </td>
                       </tr>
                     ) : getFilteredTrips().length === 0 ? (
                       <tr>
-                        <td colSpan="6" className="px-4 py-8 text-center text-gray-500">
+                        <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
                           No trips found
                         </td>
                       </tr>
@@ -473,6 +474,22 @@ export default function FleetOwnerViewModal({ fleetOwner, isOpen, onClose }) {
                       getFilteredTrips().map((trip) => {
                         const podGiven = 0; // You can add POD given tracking here
                         const podRemaining = trip.podBalance - podGiven;
+                        
+                        // Get POD status label and color
+                        const getPodStatusBadge = (status) => {
+                          const statusConfig = {
+                            trip_pod_pending: { label: '🟠 Pending', color: 'bg-orange-100 text-orange-700' },
+                            trip_pod_received: { label: '📥 Received', color: 'bg-purple-100 text-purple-700' },
+                            trip_pod_submitted: { label: '📤 Submitted', color: 'bg-yellow-100 text-yellow-700' },
+                            trip_pod_settled: { label: '✅ Settled', color: 'bg-green-100 text-green-700' }
+                          };
+                          const config = statusConfig[status] || { label: '🟠 Pending', color: 'bg-gray-100 text-gray-700' };
+                          return (
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
+                              {config.label}
+                            </span>
+                          );
+                        };
                         
                         return (
                           <tr key={trip._id} className="hover:bg-gray-50">
@@ -490,6 +507,7 @@ export default function FleetOwnerViewModal({ fleetOwner, isOpen, onClose }) {
                             </td>
                             <td className="px-4 py-3 text-gray-600">{trip.vehicleId?.vehicleNumber}</td>
                             <td className="px-4 py-3 text-gray-600">{formatDate(trip.loadDate)}</td>
+                            <td className="px-4 py-3">{getPodStatusBadge(trip.trip_pod_status || 'trip_pod_pending')}</td>
                             <td className="px-4 py-3 text-right font-semibold text-purple-600">{formatCurrency(trip.podBalance)}</td>
                             <td className="px-4 py-3 text-right font-semibold text-green-600">{formatCurrency(podGiven)}</td>
                             <td className="px-4 py-3 text-right font-semibold text-orange-600">{formatCurrency(podRemaining)}</td>

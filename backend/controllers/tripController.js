@@ -156,9 +156,12 @@ exports.getTripById = async (req, res) => {
 // Create new trip
 exports.createTrip = async (req, res) => {
   try {
+    
+    
     const trip = new Trip(req.body);
     await trip.save();
     
+
     // Update vehicle status to "on_trip"
     const Vehicle = require('../models/Vehicle');
     if (trip.vehicleId) {
@@ -635,6 +638,104 @@ exports.updateTripStatus = async (req, res) => {
     res.status(400).json({
       success: false,
       message: error.message
+    });
+  }
+};
+
+// Update trip POD status
+exports.updateTripPodStatus = async (req, res) => {
+  try {
+    const { trip_pod_status } = req.body;
+    
+    const trip = await Trip.findByIdAndUpdate(
+      req.params.id,
+      { trip_pod_status },
+      { new: true, runValidators: true }
+    ).populate('vehicleId driverId');
+    
+    if (!trip) {
+      return res.status(404).json({
+        success: false,
+        message: 'Trip not found'
+      });
+    }
+    
+    // Log activity
+    if (req.user) {
+      await createActivityLog({
+        user: req.user,
+        action: `Updated POD status for trip ${trip.tripNumber} to ${trip_pod_status}`,
+        actionType: 'UPDATE',
+        module: 'Trip',
+        entityId: trip._id,
+        entityType: 'Trip',
+        details: { tripNumber: trip.tripNumber, trip_pod_status },
+        req
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Trip POD status updated successfully',
+      data: trip
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Get trips by driver ID
+exports.getTripsByDriver = async (req, res) => {
+  try {
+    const { driverId } = req.params;
+    const { ownershipType } = req.query;
+    
+    console.log('Fetching trips for driver:', driverId);
+    console.log('Ownership type filter:', ownershipType);
+    
+    // Build query
+    let query = { 
+      driverId: driverId,
+      isActive: true 
+    };
+    
+    // Fetch trips with populated vehicle data
+    let trips = await Trip.find(query)
+      .populate({
+        path: 'vehicleId',
+        select: 'vehicleNumber vehicleType brand model ownershipType',
+        populate: {
+          path: 'fleetOwnerId',
+          select: 'fullName contact'
+        }
+      })
+      .populate('driverId', 'fullName contact')
+      .populate('clients.clientId', 'fullName companyName contact')
+      .populate('clients.originCity', 'cityName state')
+      .populate('clients.destinationCity', 'cityName state')
+      .sort({ loadDate: -1 });
+    
+    // Filter by ownership type if specified
+    if (ownershipType) {
+      trips = trips.filter(trip => trip.vehicleId?.ownershipType === ownershipType);
+    }
+    
+    console.log(`Found ${trips.length} trips for driver`);
+    
+    res.json({
+      success: true,
+      data: trips,
+      count: trips.length
+    });
+  } catch (error) {
+    console.error('Error fetching trips by driver:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
     });
   }
 };

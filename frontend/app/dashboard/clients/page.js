@@ -16,18 +16,35 @@ export default function ClientsPage() {
   const [editData, setEditData] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const [viewClient, setViewClient] = useState(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalClients, setTotalClients] = useState(0);
+  const limit = 10;
 
   useEffect(() => {
     loadClients();
-  }, [statusFilter]);
+  }, [statusFilter, searchTerm, currentPage]);
 
   const loadClients = async () => {
     try {
-      const params = {};
+      setLoading(true);
+      const params = {
+        page: currentPage,
+        limit: limit
+      };
       if (statusFilter) params.status = statusFilter;
+      if (searchTerm) params.search = searchTerm;
       
       const response = await clientAPI.getAll(params);
       setClients(response.data.data);
+      
+      // Set pagination data
+      if (response.data.pagination) {
+        setTotalPages(response.data.pagination.totalPages);
+        setTotalClients(response.data.pagination.totalClients);
+      }
     } catch (error) {
       toast.error('Failed to load clients');
       console.error(error);
@@ -71,13 +88,65 @@ export default function ClientsPage() {
   const handleSuccess = () => {
     loadClients();
   };
-
-  const filteredClients = clients.filter((client) =>
-    client.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.contact.includes(searchTerm) ||
-    client.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  
+  // Handle search with debounce
+  const handleSearch = (value) => {
+    setSearchTerm(value);
+    setCurrentPage(1); // Reset to first page on search
+  };
+  
+  // Handle status filter
+  const handleStatusFilter = (value) => {
+    setStatusFilter(value);
+    setCurrentPage(1); // Reset to first page on filter
+  };
+  
+  // Pagination handlers
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+  
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+  
+  const handlePageClick = (page) => {
+    setCurrentPage(page);
+  };
+  
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxPagesToShow = 5;
+    
+    if (totalPages <= maxPagesToShow) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        for (let i = 1; i <= 4; i++) pages.push(i);
+        pages.push('...');
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1);
+        pages.push('...');
+        for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
+      } else {
+        pages.push(1);
+        pages.push('...');
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) pages.push(i);
+        pages.push('...');
+        pages.push(totalPages);
+      }
+    }
+    
+    return pages;
+  };
 
   const getStatusBadgeColor = (status) => {
     const colors = {
@@ -188,7 +257,7 @@ export default function ClientsPage() {
               type="text"
               placeholder="Search clients by name, company, contact, or email..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleSearch(e.target.value)}
               className="input pl-10"
             />
           </div>
@@ -198,7 +267,7 @@ export default function ClientsPage() {
             <Filter className="w-5 h-5 text-gray-400" />
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => handleStatusFilter(e.target.value)}
               className="input"
             >
               <option value="">All Status</option>
@@ -226,10 +295,7 @@ export default function ClientsPage() {
                   Type
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Credit Limit
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Outstanding
+                  Pending
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
@@ -240,14 +306,20 @@ export default function ClientsPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredClients.length === 0 ? (
+              {loading ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="6" className="px-6 py-12 text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                  </td>
+                </tr>
+              ) : clients.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
                     No clients found
                   </td>
                 </tr>
               ) : (
-                filteredClients.map((client) => (
+                clients.map((client) => (
                   <tr key={client._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div>
@@ -291,15 +363,10 @@ export default function ClientsPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {formatCurrency(client.creditLimit)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className={`text-sm font-medium ${
-                        client.outstandingBalance > 0 ? 'text-orange-600' : 'text-green-600'
+                        client.pendingAmount > 0 ? 'text-orange-600' : 'text-green-600'
                       }`}>
-                        {formatCurrency(client.outstandingBalance)}
+                        {formatCurrency(client.pendingAmount || 0)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -342,11 +409,57 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      {/* Summary */}
-      <div className="flex items-center justify-between text-sm text-gray-600">
-        <p>
-          Showing {filteredClients.length} of {clients.length} clients
-        </p>
+      {/* Pagination */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-gray-600">
+          Showing {clients.length > 0 ? ((currentPage - 1) * limit) + 1 : 0} to {Math.min(currentPage * limit, totalClients)} of {totalClients} clients
+        </div>
+        
+        {totalPages > 1 && (
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handlePreviousPage}
+              disabled={currentPage === 1}
+              className={`px-3 py-1 rounded border ${
+                currentPage === 1
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'
+              }`}
+            >
+              Previous
+            </button>
+            
+            {getPageNumbers().map((page, index) => (
+              page === '...' ? (
+                <span key={`ellipsis-${index}`} className="px-2 text-gray-500">...</span>
+              ) : (
+                <button
+                  key={page}
+                  onClick={() => handlePageClick(page)}
+                  className={`px-3 py-1 rounded border ${
+                    currentPage === page
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'
+                  }`}
+                >
+                  {page}
+                </button>
+              )
+            ))}
+            
+            <button
+              onClick={handleNextPage}
+              disabled={currentPage === totalPages}
+              className={`px-3 py-1 rounded border ${
+                currentPage === totalPages
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'
+              }`}
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Client Form Modal */}

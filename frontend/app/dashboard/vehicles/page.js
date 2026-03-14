@@ -151,7 +151,7 @@ export default function VehiclesPage() {
                   Type
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Brand & Model
+                  Owner / Driver
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Capacity
@@ -192,7 +192,10 @@ export default function VehiclesPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        {vehicle.brand} {vehicle.model}
+                        {vehicle.ownershipType === 'fleet_owner' 
+                          ? (vehicle.fleetOwnerId?.fullName || 'Fleet Owner')
+                          : `Self - ${vehicle.defaultDriverId?.fullName || 'No Driver'}`
+                        }
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

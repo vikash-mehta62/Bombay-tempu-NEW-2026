@@ -112,10 +112,12 @@ export const clientAPI = {
 export const tripAPI = {
   getAll: (params) => api.get('/trips', { params }),
   getById: (id) => api.get(`/trips/${id}`),
+  getByDriver: (driverId, params) => api.get(`/trips/driver/${driverId}`, { params }),
   create: (data) => api.post('/trips', data),
   update: (id, data) => api.put(`/trips/${id}`, data),
   delete: (id) => api.delete(`/trips/${id}`),
   updateStatus: (id, status) => api.patch(`/trips/${id}/status`, { status }),
+  updatePodStatus: (id, trip_pod_status) => api.patch(`/trips/${id}/pod-status`, { trip_pod_status }),
   updateActualPod: (id, actualPodAmt, paymentType, notes) => 
     api.patch(`/trips/${id}/actual-pod`, { actualPodAmt, paymentType, notes }),
   getStats: () => api.get('/trips/stats'),
@@ -155,6 +157,7 @@ export const reportsAPI = {
   getMaintenanceCosts: () => api.get('/reports/maintenance'),
   getPODReports: (params) => api.get('/reports/pods', { params }),
   getClientPendingReport: () => api.get('/reports/client-pending'),
+  getClientNoPaymentReport: () => api.get('/reports/client-no-payment'),
   getFleetPendingReport: () => api.get('/reports/fleet-pending'),
 };
 

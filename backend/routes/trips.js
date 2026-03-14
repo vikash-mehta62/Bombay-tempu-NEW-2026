@@ -12,6 +12,9 @@ router.get('/', tripController.getAllTrips);
 // Get trip statistics
 router.get('/stats', authorize('admin'), tripController.getTripStats);
 
+// Get trips by driver ID
+router.get('/driver/:driverId', tripController.getTripsByDriver);
+
 // Get trip by ID
 router.get('/:id', tripController.getTripById);
 
@@ -23,6 +26,9 @@ router.put('/:id', authorize('admin'), tripController.updateTrip);
 
 // Update trip status
 router.patch('/:id/status', authorize('admin'), tripController.updateTripStatus);
+
+// Update trip POD status
+router.patch('/:id/pod-status', authorize('admin'), tripController.updateTripPodStatus);
 
 // Update actual POD amount
 router.patch('/:id/actual-pod', authorize('admin'), tripController.updateActualPodAmt);

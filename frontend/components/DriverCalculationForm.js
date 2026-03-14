@@ -95,18 +95,22 @@ export default function DriverCalculationForm({
   const loadTrips = async () => {
     try {
       setLoading(true);
-      const response = await tripAPI.getAll();
-      const allTrips = response.data.data;
+      // Fetch trips for this specific driver with self_owned vehicles only
+      const response = await tripAPI.getByDriver(driver._id, { ownershipType: 'self_owned' });
+      const driverTrips = response.data.data;
       
-      console.log('All trips loaded:', allTrips.length);
+      console.log('Driver trips loaded:', driverTrips.length);
+      console.log('Looking for driver:', driver._id, driver.fullName);
       
-      const driverTrips = allTrips.filter(trip => 
-        trip.driverId?._id === driver._id && 
-        trip.isActive &&
-        trip.vehicleId?.ownershipType === 'self_owned'
-      );
-      
-      console.log('Driver trips filtered:', driverTrips.length);
+      // Debug: Check vehicle ownership types
+      driverTrips.forEach(trip => {
+        console.log(`Trip ${trip.tripNumber}:`, {
+          isActive: trip.isActive,
+          vehicleNumber: trip.vehicleId?.vehicleNumber,
+          ownershipType: trip.vehicleId?.ownershipType,
+          hasVehicleId: !!trip.vehicleId
+        });
+      });
       
       const tripsWithData = await Promise.all(
         driverTrips.map(async (trip) => {
@@ -210,17 +214,33 @@ export default function DriverCalculationForm({
     // Prepare advance details - ONLY driver advances
     const advDetails = [];
     selectedTripData.forEach(trip => {
-      console.log(`\n--- Trip ${trip.tripNumber} ---`);
+      console.log(`\n--- Trip ${trip.tripNumber} Advances ---`);
       console.log('All advances:', trip.advances);
+      console.log('Advances count:', trip.advances?.length || 0);
       
       if (trip.advances && trip.advances.length > 0) {
         // Filter only driver advances (where driverId is not null)
-        const driverAdvances = trip.advances.filter(adv => {
-          console.log('Checking advance:', adv);
-          console.log('Has driverId?', !!adv.driverId);
-          return adv.driverId;
+        trip.advances.forEach(adv => {
+          console.log('Checking advance:', {
+            id: adv._id,
+            amount: adv.amount,
+            driverId: adv.driverId,
+            fleetOwnerId: adv.fleetOwnerId,
+            description: adv.description,
+            advanceType: adv.advanceType
+          });
         });
-        console.log(`Driver advances found: ${driverAdvances.length}`);
+        
+        const driverAdvances = trip.advances.filter(adv => {
+          // Include advance if it has driverId OR if it's not a POD submission
+          const hasDriverId = !!adv.driverId;
+          const isPodSubmission = adv.advanceType === 'pod_submission';
+          const shouldInclude = hasDriverId && !isPodSubmission;
+          
+          console.log(`Advance ${adv._id}: hasDriverId=${hasDriverId}, isPodSubmission=${isPodSubmission}, shouldInclude=${shouldInclude}`);
+          return shouldInclude;
+        });
+        console.log(`Driver advances found (excluding POD submissions): ${driverAdvances.length}`);
         
         driverAdvances.forEach(adv => {
           const advDetail = {
@@ -243,9 +263,18 @@ export default function DriverCalculationForm({
     selectedTripData.forEach(trip => {
       console.log(`\n--- Trip ${trip.tripNumber} Expenses ---`);
       console.log('All expenses:', trip.expenses);
+      console.log('Expenses count:', trip.expenses?.length || 0);
       
       if (trip.expenses && trip.expenses.length > 0) {
         trip.expenses.forEach(exp => {
+          console.log('Checking expense:', {
+            id: exp._id,
+            amount: exp.amount,
+            expenseType: exp.expenseType,
+            description: exp.description,
+            date: exp.date
+          });
+          
           const expDetail = {
             tripNumber: trip.tripNumber,
             date: exp.date || exp.paidAt,
