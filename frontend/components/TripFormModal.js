@@ -176,7 +176,7 @@ export default function TripFormModal({ isOpen, onClose, onSuccess, editData = n
       const [vehiclesRes, driversRes, clientsRes, citiesRes] = await Promise.all([
         vehicleAPI.getAll(),
         driverAPI.getAll(),
-        clientAPI.getAll(),
+        clientAPI.getAll({all:"all"}),
         cityAPI.getAll()
       ]);
       

@@ -3,91 +3,105 @@ const Client = require('../models/Client');
 // Get all clients with pagination and pending calculation
 exports.getAllClients = async (req, res) => {
   try {
-    const { status, search, page = 1, limit = 10 } = req.query;
-    
+    const { status, search, page = 1, limit = 10, all } = req.query;
+
     let query = { isActive: true };
-    
+
     if (status) {
       query.status = status;
     }
-    
+
     if (search) {
       query.$or = [
-        { fullName: { $regex: search, $options: 'i' } },
-        { companyName: { $regex: search, $options: 'i' } },
-        { contact: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } }
+        { fullName: { $regex: search, $options: "i" } },
+        { companyName: { $regex: search, $options: "i" } },
+        { contact: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
       ];
     }
-    
-    // Calculate pagination
+
+    // ✅ अगर all=all है तो pending calculate नहीं करना
+    if (all === "all") {
+      const clients = await Client.find(query)
+        .sort({ createdAt: -1 })
+        .select("-password");
+
+      return res.json({
+        success: true,
+        data: clients,
+        pagination: null
+      });
+    }
+
+    // ✅ Normal pagination flow
     const skip = (parseInt(page) - 1) * parseInt(limit);
+
     const totalClients = await Client.countDocuments(query);
     const totalPages = Math.ceil(totalClients / parseInt(limit));
-    
+
     const clients = await Client.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
-      .select('-password');
-    
-    // Calculate pending amount for each client
-    const Trip = require('../models/Trip');
-    const ClientPayment = require('../models/ClientPayment');
-    const ClientExpense = require('../models/ClientExpense');
-    
-    const clientsWithPending = await Promise.all(clients.map(async (client) => {
-      try {
-        // Get all active trips for this client
-        const trips = await Trip.find({
-          'clients.clientId': client._id,
-          isActive: true
-        });
-        
-        let totalDue = 0;
-        let totalPaid = 0;
-        let totalExpenses = 0;
-        
-        for (const trip of trips) {
-          const clientData = trip.clients.find(c => c.clientId.toString() === client._id.toString());
-          if (!clientData) continue;
-          
-          // Total due = client rate
-          totalDue += clientData.clientRate || 0;
-          
-          // Get payments for this trip
-          const payments = await ClientPayment.find({
-            tripId: trip._id,
-            clientId: client._id,
-            isActive: true
+      .select("-password");
+
+    const Trip = require("../models/Trip");
+    const ClientPayment = require("../models/ClientPayment");
+    const ClientExpense = require("../models/ClientExpense");
+
+    const clientsWithPending = await Promise.all(
+      clients.map(async (client) => {
+        try {
+          const trips = await Trip.find({
+            "clients.clientId": client._id,
+            isActive: true,
           });
-          totalPaid += payments.reduce((sum, p) => sum + (p.amount || 0), 0);
-          
-          // Get expenses for this trip
-          const expenses = await ClientExpense.find({
-            tripId: trip._id,
-            clientId: client._id,
-            isActive: true
-          });
-          totalExpenses += expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+
+          let totalDue = 0;
+          let totalPaid = 0;
+          let totalExpenses = 0;
+
+          for (const trip of trips) {
+            const clientData = trip.clients.find(
+              (c) => c.clientId.toString() === client._id.toString()
+            );
+
+            if (!clientData) continue;
+
+            totalDue += clientData.clientRate || 0;
+
+            const payments = await ClientPayment.find({
+              tripId: trip._id,
+              clientId: client._id,
+              isActive: true,
+            });
+
+            totalPaid += payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+            const expenses = await ClientExpense.find({
+              tripId: trip._id,
+              clientId: client._id,
+              isActive: true,
+            });
+
+            totalExpenses += expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+          }
+
+          const pendingAmount = totalDue + totalExpenses - totalPaid;
+
+          return {
+            ...client.toObject(),
+            pendingAmount,
+          };
+        } catch (error) {
+          return {
+            ...client.toObject(),
+            pendingAmount: 0,
+          };
         }
-        
-        // Pending = Total Due + Expenses - Paid
-        const pendingAmount = totalDue + totalExpenses - totalPaid;
-        
-        return {
-          ...client.toObject(),
-          pendingAmount: pendingAmount
-        };
-      } catch (error) {
-        console.error(`Error calculating pending for client ${client._id}:`, error);
-        return {
-          ...client.toObject(),
-          pendingAmount: 0
-        };
-      }
-    }));
-    
+      })
+    );
+
     res.json({
       success: true,
       data: clientsWithPending,
@@ -97,15 +111,15 @@ exports.getAllClients = async (req, res) => {
         totalClients,
         limit: parseInt(limit),
         hasNextPage: parseInt(page) < totalPages,
-        hasPrevPage: parseInt(page) > 1
-      }
+        hasPrevPage: parseInt(page) > 1,
+      },
     });
   } catch (error) {
-    console.error('Error getting clients:', error);
+    console.error("Error getting clients:", error);
     res.status(500).json({
       success: false,
-      message: 'Server error',
-      error: error.message
+      message: "Server error",
+      error: error.message,
     });
   }
 };
