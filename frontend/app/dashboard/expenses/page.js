@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { expenseAPI, vehicleAPI } from '@/lib/api';
 import { Plus, Search, Filter, Trash2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import TruckLoader from '@/components/TruckLoader';
 
 const EXPENSE_TYPES = [
   { value: 'vehicle', label: 'Vehicle' },
@@ -138,8 +139,8 @@ export default function ExpensesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center h-screen">
+        <TruckLoader size="lg" message="Loading expenses..." />
       </div>
     );
   }

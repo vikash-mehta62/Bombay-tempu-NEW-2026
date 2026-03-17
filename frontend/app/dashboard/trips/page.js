@@ -6,6 +6,7 @@ import { tripAPI } from '@/lib/api';
 import { Plus, Search, Filter, Edit, Trash2, MapPin, Calendar, TrendingUp, TrendingDown, Eye, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import TripFormModal from '@/components/TripFormModal';
+import TruckLoader from '@/components/TruckLoader';
 
 export default function TripsPage() {
   const router = useRouter();
@@ -487,8 +488,8 @@ export default function TripsPage() {
 
   if (loading && currentPage === 1) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center h-screen">
+        <TruckLoader size="lg" message="Loading trips..." />
       </div>
     );
   }
@@ -684,15 +685,13 @@ export default function TripsPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan="8" className="px-6 py-12 text-center">
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                    </div>
+                  <td colSpan="10" className="px-6 py-12 text-center">
+                    <TruckLoader size="sm" message="Loading trips..." />
                   </td>
                 </tr>
               ) : trips.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="10" className="px-6 py-12 text-center text-gray-500">
                     No trips found
                   </td>
                 </tr>

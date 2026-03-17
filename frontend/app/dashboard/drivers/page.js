@@ -6,6 +6,7 @@ import { Plus, Search, Filter, Edit, Trash2, Phone, Mail, Calendar, Eye } from '
 import { toast } from 'sonner';
 import DriverFormModal from '@/components/DriverFormModal';
 import DriverViewModal from '@/components/DriverViewModal';
+import TruckLoader from '@/components/TruckLoader';
 
 export default function DriversPage() {
   const [drivers, setDrivers] = useState([]);
@@ -113,8 +114,8 @@ export default function DriversPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center h-screen">
+        <TruckLoader size="lg" message="Loading drivers..." />
       </div>
     );
   }

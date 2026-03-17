@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
@@ -140,8 +141,14 @@ export default function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, set
           isCollapsed && 'lg:px-3'
         )}>
           <div className="flex items-center space-x-2 min-w-0">
-            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Truck className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 relative overflow-hidden">
+              <Image
+                src="/logo.jpg"
+                alt="TMS Logo"
+                width={40}
+                height={40}
+                className="object-cover rounded-lg"
+              />
             </div>
             {!isCollapsed && (
               <div className="min-w-0">

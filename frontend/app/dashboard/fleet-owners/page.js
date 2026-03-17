@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { fleetOwnerAPI } from '@/lib/api';
 import { toast } from 'sonner';
 import FleetOwnerViewModal from '@/components/FleetOwnerViewModal';
+import TruckLoader from '@/components/TruckLoader';
 import { 
   Users, 
   Plus, 
@@ -13,8 +14,7 @@ import {
   Trash2,
   Phone,
   Mail,
-  Building,
-  Loader
+  Building
 } from 'lucide-react';
 
 export default function FleetOwnersPage() {
@@ -139,8 +139,8 @@ export default function FleetOwnersPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <Loader className="w-8 h-8 animate-spin text-blue-600" />
+      <div className="flex items-center justify-center h-screen">
+        <TruckLoader size="lg" message="Loading fleet owners..." />
       </div>
     );
   }

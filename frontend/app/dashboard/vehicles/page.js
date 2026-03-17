@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import Link from 'next/link';
 import VehicleFormModal from '@/components/VehicleFormModal';
 import VehicleViewModal from '@/components/VehicleViewModal';
+import TruckLoader from '@/components/TruckLoader';
 
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState([]);
@@ -82,8 +83,8 @@ export default function VehiclesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center h-screen">
+        <TruckLoader size="lg" message="Loading vehicles..." />
       </div>
     );
   }

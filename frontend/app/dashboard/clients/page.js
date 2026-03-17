@@ -6,11 +6,13 @@ import { Plus, Search, Filter, Edit, Trash2, Phone, Mail, Building2, User, Eye }
 import { toast } from 'sonner';
 import ClientFormModal from '@/components/ClientFormModal';
 import ClientViewModal from '@/components/ClientViewModal';
+import TruckLoader from '@/components/TruckLoader';
 
 export default function ClientsPage() {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editData, setEditData] = useState(null);
@@ -89,10 +91,17 @@ export default function ClientsPage() {
     loadClients();
   };
   
-  // Handle search with debounce
-  const handleSearch = (value) => {
-    setSearchTerm(value);
+  // Handle search button click
+  const handleSearchClick = () => {
+    setSearchTerm(searchInput);
     setCurrentPage(1); // Reset to first page on search
+  };
+  
+  // Handle Enter key press
+  const handleSearchKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSearchClick();
+    }
   };
   
   // Handle status filter
@@ -167,8 +176,8 @@ export default function ClientsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center h-screen">
+        <TruckLoader size="lg" message="Loading clients..." />
       </div>
     );
   }
@@ -249,17 +258,27 @@ export default function ClientsPage() {
 
       {/* Filters */}
       <div className="card">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0 gap-4">
           {/* Search */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search clients by name, company, contact, or email..."
-              value={searchTerm}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="input pl-10"
-            />
+          <div className="relative flex-1 max-w-md flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search clients by name, company, contact, or email..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyPress={handleSearchKeyPress}
+                className="input pl-10 w-full"
+              />
+            </div>
+            <button
+              onClick={handleSearchClick}
+              className="btn btn-primary px-4 py-2 flex items-center space-x-2 whitespace-nowrap"
+            >
+              <Search className="w-4 h-4" />
+              <span>Search</span>
+            </button>
           </div>
 
           {/* Status Filter */}
@@ -306,13 +325,7 @@ export default function ClientsPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {loading ? (
-                <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                  </td>
-                </tr>
-              ) : clients.length === 0 ? (
+              {clients.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
                     No clients found
