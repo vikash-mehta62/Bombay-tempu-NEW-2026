@@ -38,7 +38,7 @@ export default function BalanceMemoModal({
   };
 
   useEffect(() => {
-    if (clientData && tripData) {
+    if (clientData && tripData && isOpen) {
       const freight = clientData.clientRate || 0;
       const clientId = clientData.clientId?._id;
       

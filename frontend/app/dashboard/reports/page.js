@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { reportsAPI } from '@/lib/api';
 import { 
   TrendingUp, 
@@ -17,6 +18,7 @@ import { formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export default function ReportsPage() {
+  const router = useRouter();
   const [reports, setReports] = useState(null);
   const [profitBreakdown, setProfitBreakdown] = useState([]);
   const [maintenanceData, setMaintenanceData] = useState(null);
@@ -684,6 +686,7 @@ export default function ReportsPage() {
             <div className="space-y-3">
               {podData.pods.length === 0 ? (
                 <div className="card text-center py-12">
+                  <FileText className="w-12 h-12 text-gray-400 mx-auto mb-2" />
                   <p className="text-gray-500">No PODs found</p>
                 </div>
               ) : (
@@ -699,7 +702,13 @@ export default function ReportsPage() {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600">
                           <div>
-                            <span className="font-medium">Trip:</span> {pod.tripNumber}
+                            <span className="font-medium">Trip:</span>{' '}
+                            <button
+                              onClick={() => router.push(`/dashboard/trips/${pod.tripId}`)}
+                              className="text-blue-600 hover:text-blue-800 underline font-medium"
+                            >
+                              {pod.tripNumber}
+                            </button>
                           </div>
                           <div>
                             <span className="font-medium">Route:</span> {pod.origin} → {pod.destination}

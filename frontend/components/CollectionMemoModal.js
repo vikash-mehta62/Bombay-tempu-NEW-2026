@@ -82,7 +82,7 @@ export default function CollectionMemoModal({
         weight: editData.weight || '',
         guarantee: editData.guarantee || ''
       });
-    } else if (clientData && tripData) {
+    } else if (clientData && tripData && isOpen) {
       console.log('Setting form data from clientData');
       const freight = clientData.clientRate || 0;
       

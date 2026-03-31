@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Modal from './Modal';
 import { 
@@ -28,6 +29,7 @@ import { generateClientReceipt, generateClientBalanceStatement, generateClientAd
 
 // Client Payment Statement Tab Component
 function ClientPaymentStatementTab({ client, formatCurrency, isAdminView = true }) {
+  const router = useRouter();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [trips, setTrips] = useState([]);
@@ -629,16 +631,15 @@ function ClientPaymentStatementTab({ client, formatCurrency, isAdminView = true 
                         )}
                       </div>
                       <div>
-                        <a 
-                          href={user?.role === 'user' ? `/trip/${trip.tripId}` : `/dashboard/trips/${trip.tripId}`}
-                          className="font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            window.location.href = user?.role === 'user' ? `/trip/${trip.tripId}` : `/dashboard/trips/${trip.tripId}`;
+                        <button
+                          onClick={() => {
+                            const url = user?.role === 'user' ? `/trip/${trip.tripId}` : `/dashboard/trips/${trip.tripId}`;
+                            router.push(url);
                           }}
+                          className="font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer text-left"
                         >
                           {trip.tripNumber}
-                        </a>
+                        </button>
                         {trip.vehicleNumber && (
                           <p className="text-xs text-gray-700 font-medium mt-0.5">
                             🚛 {trip.vehicleNumber}
@@ -741,8 +742,7 @@ function ClientPaymentStatementTab({ client, formatCurrency, isAdminView = true 
             onSuccess={() => {
               setShowPaymentModal(false);
               setSelectedTrip(null);
-              loadData(); // Reload data
-              toast.success('Payment added successfully');
+              loadClientData(); // Reload data
             }}
           />
         )}
@@ -1166,16 +1166,15 @@ function ClientAdjustmentTab({ client, formatCurrency, isAdminView = false }) {
               }`}>
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <a 
-                      href={user?.role === 'user' ? `/trip/${trip._id}` : `/dashboard/trips/${trip._id}`}
-                      className="font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        window.location.href = user?.role === 'user' ? `/trip/${trip._id}` : `/dashboard/trips/${trip._id}`;
+                    <button
+                      onClick={() => {
+                        const url = user?.role === 'user' ? `/trip/${trip._id}` : `/dashboard/trips/${trip._id}`;
+                        router.push(url);
                       }}
+                      className="font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer text-left"
                     >
                       {trip.tripNumber}
-                    </a>
+                    </button>
                     {trip.vehicleId?.vehicleNumber && (
                       <p className="text-xs text-gray-700 font-medium mt-0.5">
                         🚛 {trip.vehicleId.vehicleNumber}

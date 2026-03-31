@@ -2183,7 +2183,7 @@ export default function TripDetailsPage() {
                   <button 
                     onClick={() => {
                       if (trip.clients && trip.clients.length > 0) {
-                        setSelectedClientForMemo(trip.clients[0]);
+                        setSelectedClientForMemo(trip.clients[selectedClientIndex]);
                         setShowCollectionMemoModal(true);
                       } else {
                         toast.error('No clients found for this trip');
@@ -2253,7 +2253,7 @@ export default function TripDetailsPage() {
                   <button 
                     onClick={() => {
                       if (trip.clients && trip.clients.length > 0) {
-                        setSelectedClientForMemo(trip.clients[0]);
+                        setSelectedClientForMemo(trip.clients[selectedClientIndex]);
                         setShowBalanceMemoModal(true);
                       } else {
                         toast.error('No clients found for this trip');
