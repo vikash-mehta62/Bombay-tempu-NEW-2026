@@ -410,77 +410,6 @@ exports.uploadDocument = async (req, res) => {
 };
 
 /**
- * @desc    Delete vehicle document
- * @route   DELETE /api/vehicles/:id/delete-document/:documentType
- * @access  Private (admin only)
- */
-exports.deleteDocument = async (req, res) => {
-  try {
-    const { id, documentType } = req.params;
-    
-    const validDocTypes = [
-      'registration',
-      'fitness',
-      'insurance',
-      'puc',
-      'permit',
-      'national-permit',
-      'tax'
-    ];
-    
-    if (!validDocTypes.includes(documentType)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid document type'
-      });
-    }
-    
-    const vehicle = await Vehicle.findById(id);
-    if (!vehicle) {
-      return res.status(404).json({
-        success: false,
-        message: 'Vehicle not found'
-      });
-    }
-    
-    const cloudinary = require('cloudinary').v2;
-    
-    // Map document type to field name
-    const fieldMap = {
-      'registration': 'registrationDocument',
-      'fitness': 'fitnessDocument',
-      'insurance': 'insuranceDocument',
-      'puc': 'pucDocument',
-      'permit': 'permitDocument',
-      'national-permit': 'nationalPermitDocument',
-      'tax': 'taxDocument'
-    };
-    
-    const fieldName = fieldMap[documentType];
-    
-    // Delete from Cloudinary
-    if (vehicle[fieldName]?.publicId) {
-      await cloudinary.uploader.destroy(vehicle[fieldName].publicId);
-      vehicle[fieldName] = undefined;
-    }
-    
-    await vehicle.save();
-    
-    res.json({
-      success: true,
-      message: `${documentType} document deleted successfully`
-    });
-  } catch (error) {
-    console.error('Document delete error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to delete document',
-      error: error.message
-    });
-  }
-};
-
-/**
  * @desc    Upload vehicle document
  * @route   POST /api/vehicles/:id/upload-document
  * @access  Private (admin only)
@@ -534,8 +463,26 @@ exports.uploadDocument = async (req, res) => {
     // Convert buffer to base64
     const fileStr = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     
+    // Map document type to actual model field name
+    const fieldMap = {
+      'registration': 'registrationDocument',
+      'registrationFront': 'registrationDocumentFront',
+      'registrationBack': 'registrationDocumentBack',
+      'fitness': 'fitnessDocument',
+      'insurance': 'insuranceDocument',
+      'puc': 'pucDocument',
+      'permit': 'permitDocument',
+      'nationalPermit': 'nationalPermitDocument',
+      'tax': 'taxDocument',
+      'aadharFront': 'aadharCardFront',
+      'aadharBack': 'aadharCardBack',
+      'pan': 'panCard',
+      'tds': 'tdsForm'
+    };
+    
+    const docField = fieldMap[documentType];
+    
     // Delete old document if exists
-    const docField = `${documentType}Document`;
     if (vehicle[docField]?.publicId) {
       await cloudinary.uploader.destroy(vehicle[docField].publicId);
     }
@@ -614,7 +561,25 @@ exports.deleteDocument = async (req, res) => {
     }
     
     const cloudinary = require('cloudinary').v2;
-    const docField = `${documentType}Document`;
+    
+    // Map document type to actual model field name
+    const fieldMap = {
+      'registration': 'registrationDocument',
+      'registrationFront': 'registrationDocumentFront',
+      'registrationBack': 'registrationDocumentBack',
+      'fitness': 'fitnessDocument',
+      'insurance': 'insuranceDocument',
+      'puc': 'pucDocument',
+      'permit': 'permitDocument',
+      'nationalPermit': 'nationalPermitDocument',
+      'tax': 'taxDocument',
+      'aadharFront': 'aadharCardFront',
+      'aadharBack': 'aadharCardBack',
+      'pan': 'panCard',
+      'tds': 'tdsForm'
+    };
+    
+    const docField = fieldMap[documentType];
     
     // Delete from Cloudinary
     if (vehicle[docField]?.publicId) {

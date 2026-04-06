@@ -12,6 +12,23 @@ export default function VehicleDocumentUpload({ vehicle, onUpdate, isAdminView =
   const [selectedImage, setSelectedImage] = useState(null);
   const [vehicleData, setVehicleData] = useState(vehicle);
 
+  // Map document types to actual model field names
+  const fieldMap = {
+    'registration': 'registrationDocument',
+    'registrationFront': 'registrationDocumentFront',
+    'registrationBack': 'registrationDocumentBack',
+    'fitness': 'fitnessDocument',
+    'insurance': 'insuranceDocument',
+    'puc': 'pucDocument',
+    'permit': 'permitDocument',
+    'nationalPermit': 'nationalPermitDocument',
+    'tax': 'taxDocument',
+    'aadharFront': 'aadharCardFront',
+    'aadharBack': 'aadharCardBack',
+    'pan': 'panCard',
+    'tds': 'tdsForm'
+  };
+
   const documents = [
     { type: 'registration', label: 'Registration Certificate', date: vehicleData.registrationDate },
     // { type: 'registrationFront', label: 'Registration Certificate Front', date: vehicleData.registrationDate },
@@ -119,7 +136,7 @@ export default function VehicleDocumentUpload({ vehicle, onUpdate, isAdminView =
 
       // Add each document
       for (const docInfo of documents) {
-        const docField = `${docInfo.type}Document`;
+        const docField = fieldMap[docInfo.type];
         if (vehicleData[docField]?.url) {
           // Add document title
           doc.setFontSize(14);
@@ -202,7 +219,7 @@ export default function VehicleDocumentUpload({ vehicle, onUpdate, isAdminView =
 
       {/* Document List */}
       {documents.map((docInfo) => {
-        const docField = `${docInfo.type}Document`;
+        const docField = fieldMap[docInfo.type];
         const hasDocument = vehicleData[docField]?.url;
         
         return (

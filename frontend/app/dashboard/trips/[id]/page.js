@@ -284,6 +284,8 @@ export default function TripDetailsPage() {
   const loadBalanceMemos = async () => {
     try {
       const response = await balanceMemoAPI.getByTrip(params.id);
+      console.log(response.data.data,"responseCOLLERION")
+
       setBalanceMemos(response.data.data || []);
     } catch (error) {
       console.error('Failed to load balance memos:', error);
@@ -2178,7 +2180,12 @@ export default function TripDetailsPage() {
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-sm font-semibold text-blue-900 flex items-center">
                     <FileText className="w-4 h-4 mr-2" />
-                    Collection Memos ({collectionMemos.length})
+                    Collection Memos ({collectionMemos.filter(memo => {
+                      const currentClient = trip.clients[selectedClientIndex];
+                      const memoClientId = typeof memo.clientId === 'string' ? memo.clientId : memo.clientId?._id;
+                      const currentClientId = currentClient?.clientId?._id;
+                      return memoClientId === currentClientId;
+                    }).length})
                   </h4>
                   <button 
                     onClick={() => {
@@ -2196,14 +2203,24 @@ export default function TripDetailsPage() {
                   </button>
                 </div>
                 
-                {collectionMemos.length === 0 ? (
+                {collectionMemos.filter(memo => {
+                  const currentClient = trip.clients[selectedClientIndex];
+                  const memoClientId = typeof memo.clientId === 'string' ? memo.clientId : memo.clientId?._id;
+                  const currentClientId = currentClient?.clientId?._id;
+                  return memoClientId === currentClientId;
+                }).length === 0 ? (
                   <div className="text-center py-6">
                     <FileText className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                     <p className="text-xs text-gray-500">No collection memos yet</p>
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {collectionMemos.map((memo) => (
+                    {collectionMemos.filter(memo => {
+                      const currentClient = trip.clients[selectedClientIndex];
+                      const memoClientId = typeof memo.clientId === 'string' ? memo.clientId : memo.clientId?._id;
+                      const currentClientId = currentClient?.clientId?._id;
+                      return memoClientId === currentClientId;
+                    }).map((memo) => (
                       <div key={memo._id} className="p-3 bg-white rounded border border-blue-200">
                         <div className="flex items-center justify-between mb-2">
                           <div>
@@ -2266,14 +2283,24 @@ export default function TripDetailsPage() {
                   </button>
                 </div>
                 
-                {balanceMemos.length === 0 ? (
+                {balanceMemos.filter(memo => {
+                  const currentClient = trip.clients[selectedClientIndex];
+                  const memoClientId = typeof memo.clientId === 'string' ? memo.clientId : memo.clientId?._id;
+                  const currentClientId = currentClient?.clientId?._id;
+                  return memoClientId === currentClientId;
+                }).length === 0 ? (
                   <div className="text-center py-6">
                     <FileText className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                     <p className="text-xs text-gray-500">No balance memos yet</p>
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {balanceMemos.map((memo) => (
+                    {balanceMemos.filter(memo => {
+                      const currentClient = trip.clients[selectedClientIndex];
+                      const memoClientId = typeof memo.clientId === 'string' ? memo.clientId : memo.clientId?._id;
+                      const currentClientId = currentClient?.clientId?._id;
+                      return memoClientId === currentClientId;
+                    }).map((memo) => (
                       <div key={memo._id} className="p-3 bg-white rounded border border-green-200">
                         <div className="flex items-center justify-between mb-2">
                           <div>
