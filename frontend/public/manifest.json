@@ -9,58 +9,68 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/icon-72x72.png",
+      "src": "/72.png",
       "sizes": "72x72",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-96x96.png",
+      "src": "/96.png",
       "sizes": "96x96",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-128x128.png",
+      "src": "/128.png",
       "sizes": "128x128",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-144x144.png",
+      "src": "/144.png",
       "sizes": "144x144",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-152x152.png",
+      "src": "/152.png",
       "sizes": "152x152",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-192x192.png",
+      "src": "/192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-384x384.png",
-      "sizes": "384x384",
+      "src": "/256.png",
+      "sizes": "256x256",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-512x512.png",
+      "src": "/512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
     }
   ],
   "screenshots": [
     {
-      "src": "/screenshot1.png",
-      "sizes": "540x720",
+      "src": "/512.png",
+      "sizes": "512x512",
       "type": "image/png"
     }
   ],
@@ -71,14 +81,14 @@
       "short_name": "Dashboard",
       "description": "Open dashboard",
       "url": "/dashboard",
-      "icons": [{ "src": "/icon-96x96.png", "sizes": "96x96" }]
+      "icons": [{ "src": "/96.png", "sizes": "96x96" }]
     },
     {
       "name": "Trips",
       "short_name": "Trips",
       "description": "View trips",
       "url": "/dashboard/trips",
-      "icons": [{ "src": "/icon-96x96.png", "sizes": "96x96" }]
+      "icons": [{ "src": "/96.png", "sizes": "96x96" }]
     }
   ]
 }

@@ -2,10 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { Download, X } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 
 export default function InstallPWA() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const pathname = usePathname();
+  
+  // Check if on dashboard
+  const isDashboard = pathname?.startsWith('/dashboard');
 
   useEffect(() => {
     // Check if already installed
@@ -63,6 +68,42 @@ export default function InstallPWA() {
     return null;
   }
 
+  // Dashboard me niche fixed button
+  if (isDashboard) {
+    return (
+      <div className="fixed bottom-4 left-4 right-4 z-50 md:left-auto md:right-4 md:w-80">
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-2xl p-4 animate-slide-up">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
+                <img src="/192.png" alt="TMS" className="w-10 h-10 rounded-lg" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white">Install TMS App</h3>
+                <p className="text-xs text-white/90">Quick access anytime</p>
+              </div>
+            </div>
+            <button
+              onClick={handleDismiss}
+              className="p-2 hover:bg-white/20 rounded-lg transition-all"
+              aria-label="Dismiss"
+            >
+              <X className="w-5 h-5 text-white" />
+            </button>
+          </div>
+          <button
+            onClick={handleInstallClick}
+            className="w-full bg-white text-blue-600 font-bold py-2.5 px-4 rounded-xl flex items-center justify-center space-x-2 hover:bg-blue-50 transition-all shadow-lg"
+          >
+            <Download className="w-5 h-5" />
+            <span>Install App</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Other pages me normal banner
   return (
     <>
       {/* Mobile Bottom Banner */}
@@ -71,7 +112,7 @@ export default function InstallPWA() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3 flex-1">
               <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
-                <img src="/logo.jpg" alt="TMS" className="w-10 h-10 rounded-lg" />
+                <img src="/192.png" alt="TMS" className="w-10 h-10 rounded-lg" />
               </div>
               <div className="flex-1">
                 <h3 className="text-sm font-bold">Install TMS App</h3>
@@ -102,7 +143,7 @@ export default function InstallPWA() {
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center space-x-3">
               <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                <img src="/logo.jpg" alt="TMS" className="w-10 h-10 rounded-lg" />
+                <img src="/192.png" alt="TMS" className="w-10 h-10 rounded-lg" />
               </div>
               <div>
                 <h3 className="text-sm font-bold text-gray-900">Install TMS App</h3>
