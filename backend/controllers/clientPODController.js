@@ -143,66 +143,82 @@ exports.updateClientPOD = async (req, res) => {
 exports.uploadPODDocument = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, notes } = req.body; // Get status for this document
+    const { status, notes, trackingNumber, trackingOnly } = req.body;
 
-    // Check if file exists (multer)
-    if (!req.file) {
+    // Check if it's tracking-only (no file upload)
+    const isTrackingOnly = trackingOnly === 'true';
+
+    // If not tracking-only, file is required
+    if (!isTrackingOnly && !req.file) {
       return res.status(400).json({
         success: false,
         message: 'No file uploaded'
       });
     }
 
-    const file = req.file;
+    let documentUrl = null;
 
-    console.log('📤 Uploading to Cloudinary...');
-    console.log('File name:', file.originalname);
-    console.log('File size:', file.size);
-    console.log('Document status:', status);
+    // Upload file to Cloudinary if file exists
+    if (req.file) {
+      const file = req.file;
 
-    // Upload to Cloudinary using upload_stream
-    const uploadPromise = new Promise((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          folder: 'truck-management/pods',
-          resource_type: 'auto',
-          public_id: `POD-${Date.now()}-${Math.round(Math.random() * 1E9)}`
-        },
-        (error, result) => {
-          if (error) {
-            console.error('❌ Cloudinary Error:', error);
-            reject(error);
-          } else {
-            console.log('✅ Cloudinary Success:', result.secure_url);
-            resolve(result);
+      console.log('📤 Uploading to Cloudinary...');
+      console.log('File name:', file.originalname);
+      console.log('File size:', file.size);
+      console.log('Document status:', status);
+      console.log('Tracking number:', trackingNumber);
+
+      // Upload to Cloudinary using upload_stream
+      const uploadPromise = new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: 'truck-management/pods',
+            resource_type: 'auto',
+            public_id: `POD-${Date.now()}-${Math.round(Math.random() * 1E9)}`
+          },
+          (error, result) => {
+            if (error) {
+              console.error('❌ Cloudinary Error:', error);
+              reject(error);
+            } else {
+              console.log('✅ Cloudinary Success:', result.secure_url);
+              resolve(result);
+            }
           }
+        );
+
+        // Write buffer to stream (multer stores in buffer)
+        uploadStream.end(file.buffer);
+      });
+
+      const result = await uploadPromise;
+      documentUrl = result.secure_url;
+    }
+
+    // Add document/tracking entry to documents array
+    const updateData = {
+      $push: {
+        documents: {
+          documentUrl: documentUrl || `tracking-${Date.now()}`, // Placeholder for tracking-only
+          trackingNumber: trackingNumber || '',
+          status: status || 'pod_received',
+          notes: notes || '',
+          uploadedBy: req.user._id,
+          uploadedAt: new Date(),
+          isTrackingOnly: isTrackingOnly
         }
-      );
+      }
+    };
 
-      // Write buffer to stream (multer stores in buffer)
-      uploadStream.end(file.buffer);
-    });
+    // Also update legacy field for backward compatibility (only if file uploaded)
+    if (documentUrl) {
+      updateData.documentUrl = documentUrl;
+      updateData.status = status || 'pod_received';
+    }
 
-    const result = await uploadPromise;
-    const documentUrl = result.secure_url;
-
-    // Add document to documents array
     const pod = await ClientPOD.findByIdAndUpdate(
       id,
-      { 
-        $push: {
-          documents: {
-            documentUrl,
-            status: status || 'pod_received',
-            notes: notes || '',
-            uploadedBy: req.user._id,
-            uploadedAt: new Date()
-          }
-        },
-        // Also update legacy field for backward compatibility
-        documentUrl,
-        status: status || pod.status
-      },
+      updateData,
       { new: true }
     ).populate([
       { path: 'tripId', select: 'tripNumber' },
@@ -220,18 +236,24 @@ exports.uploadPODDocument = async (req, res) => {
 
     await createActivityLog({
       user: req.user,
-      action: `Uploaded ${status || 'POD'} document for client ${pod.clientId.fullName || pod.clientId.companyName}`,
+      action: `${isTrackingOnly ? 'Added tracking number' : 'Uploaded document'} for client ${pod.clientId.fullName || pod.clientId.companyName}`,
       actionType: 'UPDATE',
       module: 'ClientPOD',
       entityId: pod._id,
       entityType: 'ClientPOD',
-      details: { documentUrl, fileName: file.name, status: status || 'pod_received' },
+      details: { 
+        documentUrl: documentUrl || 'tracking-only', 
+        fileName: req.file?.name || 'N/A', 
+        status: status || 'pod_received', 
+        trackingNumber: trackingNumber || '',
+        isTrackingOnly
+      },
       req
     });
 
     res.json({
       success: true,
-      message: 'Document uploaded successfully',
+      message: isTrackingOnly ? 'Tracking number added successfully' : 'Document uploaded successfully',
       data: pod
     });
   } catch (error) {

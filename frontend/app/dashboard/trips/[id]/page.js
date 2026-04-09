@@ -510,10 +510,24 @@ export default function TripDetailsPage() {
   const loadClientPOD = async (clientId) => {
     try {
       const response = await clientPODAPI.getByTripAndClient(params.id, clientId);
+      const podData = response.data.data;
+      
       setClientPODs(prev => ({
         ...prev,
-        [clientId]: response.data.data
+        [clientId]: podData
       }));
+      
+      // Initialize currentPODStep based on POD status
+      if (podData && podData.status) {
+        const statuses = ['pod_pending', 'pod_received', 'pod_submitted', 'settled'];
+        const stepIndex = statuses.indexOf(podData.status);
+        if (stepIndex !== -1) {
+          setCurrentPODStep(prev => ({
+            ...prev,
+            [clientId]: stepIndex
+          }));
+        }
+      }
     } catch (error) {
       console.error('Failed to load client POD:', error);
     }
@@ -627,7 +641,7 @@ export default function TripDetailsPage() {
     }));
   };
   
-  const handleInlineDocumentUpload = async (clientId, file, notes) => {
+  const handleInlineDocumentUpload = async (clientId, file, notes, trackingNumber) => {
     try {
       const existingPOD = clientPODs[clientId];
       const currentStep = currentPODStep[clientId] || 0;
@@ -635,22 +649,39 @@ export default function TripDetailsPage() {
       const currentStatus = statuses[currentStep];
       
       if (existingPOD) {
-        // Update existing POD
-        await clientPODAPI.update(existingPOD._id, {
-          status: currentStatus,
-          notes: notes
-        });
-        
-        // Upload document with status
-        if (file) {
+        // If only tracking number (no file), update POD with tracking number
+        if (!file && trackingNumber) {
+          await clientPODAPI.update(existingPOD._id, {
+            status: currentStatus,
+            notes: notes
+          });
+          
+          // Add tracking number as a document entry without file
+          const formData = new FormData();
+          formData.append('status', currentStatus);
+          formData.append('notes', notes || '');
+          formData.append('trackingNumber', trackingNumber);
+          formData.append('trackingOnly', 'true'); // Flag to indicate tracking-only entry
+          await clientPODAPI.uploadDocument(existingPOD._id, formData);
+          
+          toast.success('Tracking number added successfully');
+        } 
+        // If file is provided (with or without tracking number)
+        else if (file) {
+          await clientPODAPI.update(existingPOD._id, {
+            status: currentStatus,
+            notes: notes
+          });
+          
           const formData = new FormData();
           formData.append('document', file);
           formData.append('status', currentStatus);
           formData.append('notes', notes || '');
+          formData.append('trackingNumber', trackingNumber || '');
           await clientPODAPI.uploadDocument(existingPOD._id, formData);
+          
+          toast.success('Document uploaded successfully');
         }
-        
-        toast.success('Document uploaded successfully');
       } else {
         // Create new POD
         const response = await clientPODAPI.create({
@@ -660,16 +691,30 @@ export default function TripDetailsPage() {
           notes: notes
         });
         
-        // Upload document with status
-        if (file && response.data.data._id) {
-          const formData = new FormData();
-          formData.append('document', file);
-          formData.append('status', currentStatus);
-          formData.append('notes', notes || '');
-          await clientPODAPI.uploadDocument(response.data.data._id, formData);
+        if (response.data.data._id) {
+          // If only tracking number (no file)
+          if (!file && trackingNumber) {
+            const formData = new FormData();
+            formData.append('status', currentStatus);
+            formData.append('notes', notes || '');
+            formData.append('trackingNumber', trackingNumber);
+            formData.append('trackingOnly', 'true');
+            await clientPODAPI.uploadDocument(response.data.data._id, formData);
+            
+            toast.success('POD created with tracking number');
+          }
+          // If file is provided
+          else if (file) {
+            const formData = new FormData();
+            formData.append('document', file);
+            formData.append('status', currentStatus);
+            formData.append('notes', notes || '');
+            formData.append('trackingNumber', trackingNumber || '');
+            await clientPODAPI.uploadDocument(response.data.data._id, formData);
+            
+            toast.success('POD created successfully');
+          }
         }
-        
-        toast.success('POD created successfully');
       }
       
       // Reset form and hide upload section
@@ -2012,25 +2057,63 @@ export default function TripDetailsPage() {
                           const formData = new FormData(e.target);
                           const file = formData.get('document');
                           const notes = formData.get('notes');
-                          handleInlineDocumentUpload(client.clientId?._id, file, notes);
+                          const trackingNumber = formData.get('trackingNumber');
+                          
+                          // Validation: Either file or tracking number must be provided
+                          if (!file && !trackingNumber) {
+                            toast.error('Please upload a document OR enter a tracking number');
+                            return;
+                          }
+                          
+                          handleInlineDocumentUpload(client.clientId?._id, file, notes, trackingNumber);
                         }}>
                           <div className="space-y-3">
+                            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                              <p className="text-xs font-semibold text-blue-800 mb-1">
+                                ℹ️ Current Status: {getStatusLabel(['pod_pending', 'pod_received', 'pod_submitted', 'settled'][currentPODStep[client.clientId?._id] || 0])}
+                              </p>
+                              <p className="text-xs text-blue-600">
+                                Upload document OR enter tracking number (at least one required)
+                              </p>
+                            </div>
+                            
                             <div>
                               <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                Current Status: {getStatusLabel(['pod_pending', 'pod_received', 'pod_submitted', 'settled'][currentPODStep[client.clientId?._id] || 0])}
+                                📄 Upload Document (Optional)
                               </label>
                               <input
                                 type="file"
                                 name="document"
                                 accept=".pdf,.jpg,.jpeg,.png"
                                 className="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                                required
                               />
                               <p className="text-xs text-gray-500 mt-1">Accepted: PDF, JPG, PNG (Max 10MB)</p>
                             </div>
                             
+                            <div className="relative">
+                              <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-gray-300"></div>
+                              </div>
+                              <div className="relative flex justify-center text-xs">
+                                <span className="px-2 bg-gray-50 text-gray-500 font-semibold">OR</span>
+                              </div>
+                            </div>
+                            
                             <div>
-                              <label className="block text-xs font-semibold text-gray-700 mb-1">Notes (Optional)</label>
+                              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                📦 Tracking Number (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                name="trackingNumber"
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                placeholder="Enter tracking number..."
+                              />
+                              <p className="text-xs text-gray-500 mt-1">Add tracking number for this POD</p>
+                            </div>
+                            
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-700 mb-1">📝 Notes (Optional)</label>
                               <textarea
                                 name="notes"
                                 rows="2"
@@ -2051,7 +2134,7 @@ export default function TripDetailsPage() {
                                 type="submit"
                                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-300 text-sm font-semibold shadow-md hover:shadow-lg"
                               >
-                                Upload Document
+                                Submit
                               </button>
                             </div>
                           </div>
@@ -2098,12 +2181,21 @@ export default function TripDetailsPage() {
                                   <div key={doc._id} className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200 hover:border-blue-400 transition-all duration-300 transform hover:scale-[1.02]">
                                     <div className="flex items-center space-x-3 flex-1">
                                       <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                        <FileText className="w-5 h-5 text-blue-600" />
+                                        {doc.isTrackingOnly ? (
+                                          <Package className="w-5 h-5 text-purple-600" />
+                                        ) : (
+                                          <FileText className="w-5 h-5 text-blue-600" />
+                                        )}
                                       </div>
                                       <div className="flex-1 min-w-0">
                                         <p className="text-sm font-bold text-gray-900 truncate">
-                                          {getStatusLabel(doc.status)} Document
+                                          {doc.isTrackingOnly ? '📦 Tracking Number' : `${getStatusLabel(doc.status)} Document`}
                                         </p>
+                                        {doc.trackingNumber && (
+                                          <p className="text-xs font-semibold text-purple-600 truncate">
+                                            Tracking: {doc.trackingNumber}
+                                          </p>
+                                        )}
                                         {doc.notes && (
                                           <p className="text-xs text-gray-600 truncate">{doc.notes}</p>
                                         )}
@@ -2129,22 +2221,26 @@ export default function TripDetailsPage() {
                                       </div>
                                     </div>
                                     <div className="flex items-center space-x-2 flex-shrink-0">
-                                      <button
-                                        onClick={() => handlePreviewDocument(doc.documentUrl)}
-                                        className="p-2 text-green-600 hover:text-green-800 hover:bg-green-100 rounded-lg transition-all duration-300"
-                                        title="Preview"
-                                      >
-                                        <Eye className="w-4 h-4" />
-                                      </button>
-                                      <a 
-                                        href={doc.documentUrl} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-lg transition-all duration-300"
-                                        title="Download"
-                                      >
-                                        <Download className="w-4 h-4" />
-                                      </a>
+                                      {!doc.isTrackingOnly && (
+                                        <>
+                                          <button
+                                            onClick={() => handlePreviewDocument(doc.documentUrl)}
+                                            className="p-2 text-green-600 hover:text-green-800 hover:bg-green-100 rounded-lg transition-all duration-300"
+                                            title="Preview"
+                                          >
+                                            <Eye className="w-4 h-4" />
+                                          </button>
+                                          <a 
+                                            href={doc.documentUrl} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-lg transition-all duration-300"
+                                            title="Download"
+                                          >
+                                            <Download className="w-4 h-4" />
+                                          </a>
+                                        </>
+                                      )}
                                       <button
                                         onClick={() => handleDeleteDocument(clientPODs[client.clientId._id]._id, doc._id, client.clientId._id)}
                                         className="p-2 text-red-500 hover:text-red-700 hover:bg-red-100 rounded-lg transition-all duration-300"

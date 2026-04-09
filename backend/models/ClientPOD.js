@@ -22,6 +22,13 @@ const clientPODSchema = new mongoose.Schema({
       type: String,
       required: true
     },
+    trackingNumber: {
+      type: String
+    },
+    isTrackingOnly: {
+      type: Boolean,
+      default: false
+    },
     status: {
       type: String,
       enum: ['pod_pending', 'pod_received', 'pod_submitted', 'settled'],
