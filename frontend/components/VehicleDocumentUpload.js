@@ -122,98 +122,77 @@ export default function VehicleDocumentUpload({ vehicle, onUpdate, isAdminView =
 
   const downloadAllDocuments = async () => {
     try {
-      const doc = new jsPDF();
-      let yPosition = 20;
+      toast.loading('Generating PDF from server...');
       
-      // Title
-      doc.setFontSize(18);
-      doc.text(`Vehicle Documents - ${vehicleData.vehicleNumber}`, 14, yPosition);
-      yPosition += 10;
+      const response = await vehicleAPI.downloadDocumentsPDF(vehicle._id);
       
-      doc.setFontSize(12);
-      doc.text(`Generated: ${new Date().toLocaleDateString('en-IN')}`, 14, yPosition);
-      yPosition += 15;
-
-      // Add each document
-      for (const docInfo of documents) {
-        const docField = fieldMap[docInfo.type];
-        if (vehicleData[docField]?.url) {
-          // Add document title
-          doc.setFontSize(14);
-          doc.text(docInfo.label, 14, yPosition);
-          yPosition += 7;
-          
-          // Add date if available
-          if (docInfo.date) {
-            doc.setFontSize(10);
-            doc.text(`Date: ${new Date(docInfo.date).toLocaleDateString('en-IN')}`, 14, yPosition);
-            yPosition += 7;
-          }
-          
-          try {
-            // Load image
-            const img = new Image();
-            img.crossOrigin = 'Anonymous';
-            
-            await new Promise((resolve, reject) => {
-              img.onload = () => resolve();
-              img.onerror = () => reject();
-              img.src = vehicleData[docField].url;
-            });
-            
-            // Calculate dimensions to fit page
-            const maxWidth = 180;
-            const maxHeight = 100;
-            let width = img.width;
-            let height = img.height;
-            
-            if (width > maxWidth) {
-              height = (maxWidth / width) * height;
-              width = maxWidth;
-            }
-            
-            if (height > maxHeight) {
-              width = (maxHeight / height) * width;
-              height = maxHeight;
-            }
-            
-            // Check if we need a new page
-            if (yPosition + height > 270) {
-              doc.addPage();
-              yPosition = 20;
-            }
-            
-            // Add image
-            doc.addImage(img, 'JPEG', 14, yPosition, width, height);
-            yPosition += height + 15;
-          } catch (error) {
-            console.error(`Failed to load image for ${docInfo.label}:`, error);
-            doc.setFontSize(10);
-            doc.text('(Image could not be loaded)', 14, yPosition);
-            yPosition += 10;
-          }
-        }
-      }
+      // Create blob from response
+      const blob = new Blob([response.data], { type: 'application/pdf' });
       
-      // Save PDF
-      doc.save(`${vehicleData.vehicleNumber}_documents_${new Date().toISOString().split('T')[0]}.pdf`);
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${vehicleData.vehicleNumber}_documents_${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.dismiss();
       toast.success('All documents downloaded as PDF');
     } catch (error) {
-      console.error('PDF generation error:', error);
-      toast.error('Failed to generate PDF');
+      console.error('PDF download error:', error);
+      toast.dismiss();
+      toast.error('Failed to download PDF');
+    }
+  };
+
+  const downloadAllDocumentsZIP = async () => {
+    try {
+      toast.loading('Creating ZIP file from server...');
+      
+      const response = await vehicleAPI.downloadDocumentsZIP(vehicle._id);
+      
+      // Create blob from response
+      const blob = new Blob([response.data], { type: 'application/zip' });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${vehicleData.vehicleNumber}_Documents_${new Date().toISOString().split('T')[0]}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.dismiss();
+      toast.success('All documents downloaded as ZIP');
+    } catch (error) {
+      console.error('ZIP download error:', error);
+      toast.dismiss();
+      toast.error('Failed to download ZIP');
     }
   };
 
   return (
     <div className="space-y-4">
-      {/* Download All Button */}
-      <div className="flex justify-end mb-4">
+      {/* Download All Buttons */}
+      <div className="flex justify-end gap-3 mb-4">
+        <button
+          onClick={downloadAllDocumentsZIP}
+          className="btn bg-green-600 text-white hover:bg-green-700 flex items-center space-x-2"
+        >
+          <Download className="w-4 h-4" />
+          <span>Download All (ZIP)</span>
+        </button>
         <button
           onClick={downloadAllDocuments}
           className="btn bg-blue-600 text-white hover:bg-blue-700 flex items-center space-x-2"
         >
           <Download className="w-4 h-4" />
-          <span>Download All Documents (PDF)</span>
+          <span>Download All (PDF)</span>
         </button>
       </div>
 

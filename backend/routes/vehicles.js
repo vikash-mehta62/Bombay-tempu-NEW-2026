@@ -11,6 +11,7 @@ const {
   uploadDocument,
   deleteDocument
 } = require('../controllers/vehicleController');
+const { downloadAllDocumentsPDF, downloadAllDocumentsZIP } = require('../controllers/vehicleDocumentController');
 const { protect, authorize } = require('../middleware/auth');
 const { logActivity } = require('../middleware/activityLogger');
 const multer = require('multer');
@@ -77,5 +78,11 @@ router.post('/:id/upload-document', upload.single('document'), uploadDocument);
 
 // Delete vehicle document
 router.delete('/:id/delete-document/:documentType', deleteDocument);
+
+// Download all documents as PDF
+router.get('/:id/download-documents-pdf', downloadAllDocumentsPDF);
+
+// Download all documents as ZIP
+router.get('/:id/download-documents-zip', downloadAllDocumentsZIP);
 
 module.exports = router;

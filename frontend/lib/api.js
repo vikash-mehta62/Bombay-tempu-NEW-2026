@@ -70,6 +70,12 @@ export const vehicleAPI = {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
   deleteDocument: (id, documentType) => api.delete(`/vehicles/${id}/delete-document/${documentType}`),
+  downloadDocumentsPDF: (id) => api.get(`/vehicles/${id}/download-documents-pdf`, {
+    responseType: 'blob'
+  }),
+  downloadDocumentsZIP: (id) => api.get(`/vehicles/${id}/download-documents-zip`, {
+    responseType: 'blob'
+  }),
 };
 
 // Fleet Owner API
