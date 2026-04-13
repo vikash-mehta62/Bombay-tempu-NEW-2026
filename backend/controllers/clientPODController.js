@@ -144,12 +144,14 @@ exports.uploadPODDocument = async (req, res) => {
   try {
     const { id } = req.params;
     const { status, notes, trackingNumber, trackingOnly } = req.body;
+    const normalizedTrackingNumber = (trackingNumber || '').trim();
+    const hasFile = !!req.file;
 
-    // Check if it's tracking-only (no file upload)
-    const isTrackingOnly = trackingOnly === 'true';
+    // Treat as tracking-only if explicitly flagged OR tracking number is present without file.
+    const isTrackingOnly = trackingOnly === 'true' || (!hasFile && !!normalizedTrackingNumber);
 
     // If not tracking-only, file is required
-    if (!isTrackingOnly && !req.file) {
+    if (!isTrackingOnly && !hasFile) {
       return res.status(400).json({
         success: false,
         message: 'No file uploaded'
@@ -159,14 +161,14 @@ exports.uploadPODDocument = async (req, res) => {
     let documentUrl = null;
 
     // Upload file to Cloudinary if file exists
-    if (req.file) {
+    if (hasFile) {
       const file = req.file;
 
       console.log('📤 Uploading to Cloudinary...');
       console.log('File name:', file.originalname);
       console.log('File size:', file.size);
       console.log('Document status:', status);
-      console.log('Tracking number:', trackingNumber);
+      console.log('Tracking number:', normalizedTrackingNumber);
 
       // Upload to Cloudinary using upload_stream
       const uploadPromise = new Promise((resolve, reject) => {
@@ -200,7 +202,7 @@ exports.uploadPODDocument = async (req, res) => {
       $push: {
         documents: {
           documentUrl: documentUrl || `tracking-${Date.now()}`, // Placeholder for tracking-only
-          trackingNumber: trackingNumber || '',
+          trackingNumber: normalizedTrackingNumber,
           status: status || 'pod_received',
           notes: notes || '',
           uploadedBy: req.user._id,
@@ -245,7 +247,7 @@ exports.uploadPODDocument = async (req, res) => {
         documentUrl: documentUrl || 'tracking-only', 
         fileName: req.file?.name || 'N/A', 
         status: status || 'pod_received', 
-        trackingNumber: trackingNumber || '',
+        trackingNumber: normalizedTrackingNumber,
         isTrackingOnly
       },
       req

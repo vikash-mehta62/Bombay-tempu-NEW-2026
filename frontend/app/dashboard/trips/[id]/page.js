@@ -647,10 +647,12 @@ export default function TripDetailsPage() {
       const currentStep = currentPODStep[clientId] || 0;
       const statuses = ['pod_pending', 'pod_received', 'pod_submitted', 'settled'];
       const currentStatus = statuses[currentStep];
+      const hasFile = file && file.size > 0;
+      const normalizedTrackingNumber = (trackingNumber || '').trim();
       
       if (existingPOD) {
         // If only tracking number (no file), update POD with tracking number
-        if (!file && trackingNumber) {
+        if (!hasFile && normalizedTrackingNumber) {
           await clientPODAPI.update(existingPOD._id, {
             status: currentStatus,
             notes: notes
@@ -660,14 +662,14 @@ export default function TripDetailsPage() {
           const formData = new FormData();
           formData.append('status', currentStatus);
           formData.append('notes', notes || '');
-          formData.append('trackingNumber', trackingNumber);
+          formData.append('trackingNumber', normalizedTrackingNumber);
           formData.append('trackingOnly', 'true'); // Flag to indicate tracking-only entry
           await clientPODAPI.uploadDocument(existingPOD._id, formData);
           
           toast.success('Tracking number added successfully');
         } 
         // If file is provided (with or without tracking number)
-        else if (file) {
+        else if (hasFile) {
           await clientPODAPI.update(existingPOD._id, {
             status: currentStatus,
             notes: notes
@@ -677,7 +679,7 @@ export default function TripDetailsPage() {
           formData.append('document', file);
           formData.append('status', currentStatus);
           formData.append('notes', notes || '');
-          formData.append('trackingNumber', trackingNumber || '');
+          formData.append('trackingNumber', normalizedTrackingNumber);
           await clientPODAPI.uploadDocument(existingPOD._id, formData);
           
           toast.success('Document uploaded successfully');
@@ -693,23 +695,23 @@ export default function TripDetailsPage() {
         
         if (response.data.data._id) {
           // If only tracking number (no file)
-          if (!file && trackingNumber) {
+          if (!hasFile && normalizedTrackingNumber) {
             const formData = new FormData();
             formData.append('status', currentStatus);
             formData.append('notes', notes || '');
-            formData.append('trackingNumber', trackingNumber);
+            formData.append('trackingNumber', normalizedTrackingNumber);
             formData.append('trackingOnly', 'true');
             await clientPODAPI.uploadDocument(response.data.data._id, formData);
             
             toast.success('POD created with tracking number');
           }
           // If file is provided
-          else if (file) {
+          else if (hasFile) {
             const formData = new FormData();
             formData.append('document', file);
             formData.append('status', currentStatus);
             formData.append('notes', notes || '');
-            formData.append('trackingNumber', trackingNumber || '');
+            formData.append('trackingNumber', normalizedTrackingNumber);
             await clientPODAPI.uploadDocument(response.data.data._id, formData);
             
             toast.success('POD created successfully');
@@ -2055,9 +2057,10 @@ export default function TripDetailsPage() {
                         <form onSubmit={(e) => {
                           e.preventDefault();
                           const formData = new FormData(e.target);
-                          const file = formData.get('document');
-                          const notes = formData.get('notes');
-                          const trackingNumber = formData.get('trackingNumber');
+                          const rawFile = formData.get('document');
+                          const file = rawFile && rawFile.size > 0 ? rawFile : null;
+                          const notes = (formData.get('notes') || '').toString();
+                          const trackingNumber = (formData.get('trackingNumber') || '').toString().trim();
                           
                           // Validation: Either file or tracking number must be provided
                           if (!file && !trackingNumber) {
