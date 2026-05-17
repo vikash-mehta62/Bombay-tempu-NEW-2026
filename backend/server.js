@@ -72,6 +72,7 @@ app.use('/api/adjustment-payments', require('./routes/adjustmentPayments'));
 app.use('/api/driver-calculations', require('./routes/driverCalculations'));
 app.use('/api/logs', require('./routes/logs'));
 app.use('/api/reports', require('./routes/reports'));
+app.use('/api/lrs', require('./routes/lrRoutes'));
 
 // Health check route
 app.get('/health', (req, res) => {

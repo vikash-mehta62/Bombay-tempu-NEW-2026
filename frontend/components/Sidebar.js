@@ -19,7 +19,8 @@ import {
   ChevronRight,
   X,
   Building2,
-  Shield
+  Shield,
+  ScrollText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -64,6 +65,11 @@ const menuItems = [
     title: 'Invoices',
     href: '/dashboard/invoices',
     icon: FileText,
+  },
+  {
+    title: 'LR Download',
+    href: '/dashboard/lr',
+    icon: ScrollText,
   },
   {
     title: 'Payments',
