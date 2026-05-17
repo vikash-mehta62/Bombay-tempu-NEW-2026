@@ -17,103 +17,89 @@ const [formData, setFormData] = useState({
   mob: '6375916182',
   gstNo: '06HNTEM3568J1Z4',
 
-  bookingType: 'TO PAY',
-  deliveryType: 'GODOWN TO GODOWN',
-  serviceType: 'ROAD',
-  issueType: 'ISSUE',
+  bookingType: '',
+  deliveryType: '',
+  serviceType: '',
+  issueType: '',
 
-  customerName: 'RAJ TRADERS',
+  customerName: '',
 
-  consignorName: 'SHARMA ENTERPRISES',
-  consignorAddress: 'Plot No. 45, Industrial Area Phase 2, Delhi',
-  consignorPin: '110020',
-  consignorMob: '9876543210',
-  consignorGst: '07ABCDE1234F1Z5',
-  consignorCode: 'CNS001',
+  consignorName: '',
+  consignorAddress: '',
+  consignorPin: '',
+  consignorMob: '',
+  consignorGst: '',
+  consignorCode: '',
 
-  consigneeName: 'GUPTA AGENCIES',
-  consigneeAddress: 'Shop No. 12, Transport Nagar, Jaipur, Rajasthan',
-  consigneePin: '302003',
-  consigneeMob: '9123456780',
-  consigneeGst: '08XYZAB5678L1Z2',
-  consigneeCode: 'CNE001',
+  consigneeName: '',
+  consigneeAddress: '',
+  consigneePin: '',
+  consigneeMob: '',
+  consigneeCode: '',
 
-  consignmentNo: 'MK-13001',
+  consignmentNo: '',
 
-  from: 'Delhi',
-  to: 'Jaipur',
+  from: '',
+  to: '',
 
   items: [
     {
-      typeOfPacking: 'BOX',
-      description: 'Electronic Items',
-      actualWeight: '120',
-      chargedWeight: '130',
-      rate: '25'
+      typeOfPacking: '',
+      description: '',
+      actualWeight: '',
+      chargedWeight: '',
+      rate: ''
     },
-    {
-      typeOfPacking: 'BAG',
-      description: 'Clothing Material',
-      actualWeight: '80',
-      chargedWeight: '85',
-      rate: '20'
-    }
+  
   ],
 
-  noOfPackages: '25',
+  noOfPackages: '',
 
-  length: '120',
-  width: '100',
-  height: '90',
+  length: '',
+  width: '',
+  height: '',
 
-  privateMarks: 'Handle With Care',
-  declaredValue: '150000',
+  privateMarks: '',
+  declaredValue: '',
 
   invoices: [
     {
-      invoiceNo: 'INV-1001',
-      date: '05/04/2026',
-      partName: 'LED TV',
-      partNo: 'TV-001',
-      noOfPcs: '10',
-      ewayBillNo: '123456789012'
-    },
-    {
-      invoiceNo: 'INV-1002',
-      date: '06/04/2026',
-      partName: 'Shirts',
-      partNo: 'SH-002',
-      noOfPcs: '50',
-      ewayBillNo: '987654321098'
+      invoiceNo: '',
+      date: '',
+      partName: '',
+      partNo: '',
+      noOfPcs: '',
+      ewayBillNo: ''
     }
+   
   ],
 
-  freight: '5000',
-  rov: '200',
-  fodToPay: '300',
-  fuelSurcharge: '150',
-  collection: '100',
-  delCharges: '250',
-  hamali: '180',
-  builtyCharges: '200',
+  freight: '',
+  rov: '',
+  fodToPay: '',
+  fuelSurcharge: '',
+  collection: '',
+  delCharges: '',
+  hamali: '',
+  builtyCharges: '',
 
-  sgstPercent: '9',
-  cgstPercent: '9',
-  igstPercent: '0',
+  sgstPercent: '',
+  cgstPercent: '',
+  igstPercent: '',
 
-  lrNo: 'LR2026001',
-  grnNo: 'GRN7890',
-  grnDate: '07/04/2026',
+  lrNo: '',
+  grnNo: '',
+  grnDate: '',
 
   specialInstruction: 'Do not stack heavy items on top. Deliver during working hours only.',
 
   preparedBy: 'MOHIT KAREL',
 
-  amountInWords: 'One Lakh Fifty Thousand Rupees Only',
+  amountInWords: '',
 
   rpeType: 'PALLET',
   rpeId: 'RPE123',
-  rpeQty: '5',
+  rpeQty: '',
   rpeRemarks: 'Returnable pallets in good condition'
 });
 
