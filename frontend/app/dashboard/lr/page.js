@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Download, Plus, Trash2, Save, List } from 'lucide-react';
+import { Download, Plus, Trash2, Save, List, Upload, FileText, Loader2, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter, useSearchParams } from 'next/navigation';
 
@@ -11,97 +11,194 @@ export default function LRPage() {
   const searchParams = useSearchParams();
   const lrId = searchParams.get('id');
   const [loading, setLoading] = useState(false);
-const [formData, setFormData] = useState({
-  companyName: 'MK LOGISTICS',
-  officeAddress: 'Corp Office : G Floor Shop No. 13 City Star Mall Parijat Chowk, Hisar, Haryana - 125001',
-  mob: '6375916182',
-  gstNo: '06HNTEM3568J1Z4',
+  const [clients, setClients] = useState([]);
+  const [uploadingInvoice, setUploadingInvoice] = useState(false);
+  const [uploadingBill, setUploadingBill] = useState(false);
+  const [clientSearchQuery, setClientSearchQuery] = useState('');
+  const [searchingClients, setSearchingClients] = useState(false);
+  const [formData, setFormData] = useState({
+    companyName: 'MK LOGISTICS',
+    officeAddress: 'Corp Office : G Floor Shop No. 13 City Star Mall Parijat Chowk, Hisar, Haryana - 125001',
+    mob: '6375916182',
+    gstNo: '06HNTEM3568J1Z4',
 
-  bookingType: '',
-  deliveryType: '',
-  serviceType: '',
-  issueType: '',
+    bookingType: 'TO PAY',
+    deliveryType: 'GODOWN TO GODOWN',
+    serviceType: 'ROAD',
+    issueType: 'ISSUE',
 
-  customerName: '',
+    customerName: '',
 
-  consignorName: '',
-  consignorAddress: '',
-  consignorPin: '',
-  consignorMob: '',
-  consignorGst: '',
-  consignorCode: '',
+    consignorName: '',
+    consignorAddress: '',
+    consignorPin: '',
+    consignorMob: '',
+    consignorGst: '',
+    consignorCode: '',
 
-  consigneeName: '',
-  consigneeAddress: '',
-  consigneePin: '',
-  consigneeMob: '',
-  consigneeCode: '',
+    consigneeName: '',
+    consigneeAddress: '',
+    consigneePin: '',
+    consigneeMob: '',
+    consigneeCode: '',
 
-  consignmentNo: '',
+    consignmentNo: '',
 
-  from: '',
-  to: '',
+    from: '',
+    to: '',
 
-  items: [
-    {
-      typeOfPacking: '',
-      description: '',
-      actualWeight: '',
-      chargedWeight: '',
-      rate: ''
-    },
-  
-  ],
+    items: [
+      {
+        typeOfPacking: '',
+        description: '',
+        actualWeight: '',
+        chargedWeight: '',
+        rate: ''
+      },
+    
+    ],
 
-  noOfPackages: '',
+    noOfPackages: '',
 
-  length: '',
-  width: '',
-  height: '',
+    length: '',
+    width: '',
+    height: '',
 
-  privateMarks: '',
-  declaredValue: '',
+    privateMarks: '',
+    declaredValue: '',
 
-  invoices: [
-    {
-      invoiceNo: '',
-      date: '',
-      partName: '',
-      partNo: '',
-      noOfPcs: '',
-      ewayBillNo: ''
+    invoices: [
+      {
+        invoiceNo: '',
+        date: '',
+        partName: '',
+        partNo: '',
+        noOfPcs: '',
+        ewayBillNo: ''
+      }
+     
+    ],
+
+    freight: '',
+    rov: '',
+    fodToPay: '',
+    fuelSurcharge: '',
+    collection: '',
+    delCharges: '',
+    hamali: '',
+    builtyCharges: '',
+
+    sgstPercent: '',
+    cgstPercent: '',
+    igstPercent: '',
+
+    lrNo: '',
+    grnNo: '',
+    grnDate: '',
+
+    specialInstruction: 'Do not stack heavy items on top. Deliver during working hours only.',
+
+    preparedBy: 'MOHIT KAREL',
+
+    amountInWords: '',
+
+    rpeType: 'PALLET',
+    rpeId: 'RPE123',
+    rpeQty: '',
+    rpeRemarks: 'Returnable pallets in good condition',
+    invoiceDocument: null,
+    billDocument: null
+  });
+
+  // Load clients list on mount and generate consignment number if new
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clients/search-dropdown`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setClients(data.data || []);
+        }
+      } catch (error) {
+        console.error('Error fetching clients:', error);
+      }
+    };
+    
+    const generateNextConsignmentNo = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/lrs`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (response.ok) {
+          const lrs = await response.json();
+          if (lrs && lrs.length > 0) {
+            const latestLR = lrs[0];
+            const lastNoStr = latestLR.consignmentNo;
+            const numMatch = lastNoStr.match(/\d+/);
+            if (numMatch) {
+              const lastNum = parseInt(numMatch[0]);
+              const nextNum = lastNum + 1;
+              const nextNumStr = String(nextNum).padStart(numMatch[0].length, '0');
+              const nextConsignmentNo = lastNoStr.replace(numMatch[0], nextNumStr);
+              setFormData(prev => ({ ...prev, consignmentNo: nextConsignmentNo }));
+              return;
+            }
+          }
+          // Default fallback
+          const dateStr = new Date().toISOString().slice(2,10).replace(/-/g, '');
+          const randomStr = Math.floor(1000 + Math.random() * 9000);
+          setFormData(prev => ({ ...prev, consignmentNo: `MK-${dateStr}-${randomStr}` }));
+        }
+      } catch (error) {
+        console.error('Error generating consignment number:', error);
+      }
+    };
+
+    fetchClients();
+    if (!lrId) {
+      generateNextConsignmentNo();
     }
-   
-  ],
+  }, [lrId]);
 
-  freight: '',
-  rov: '',
-  fodToPay: '',
-  fuelSurcharge: '',
-  collection: '',
-  delCharges: '',
-  hamali: '',
-  builtyCharges: '',
+  const handleAutofillConsignor = (clientId) => {
+    if (!clientId) return;
+    const client = clients.find(c => c._id === clientId);
+    if (!client) return;
+    const address = client.address || client.billingAddress || '';
+    const pinMatch = address.match(/\b\d{6}\b/);
+    setFormData(prev => ({
+      ...prev,
+      consignorName: client.companyName || client.fullName || '',
+      consignorAddress: address,
+      consignorPin: pinMatch ? pinMatch[0] : prev.consignorPin || '',
+      consignorMob: client.contact || '',
+      consignorGst: client.gstNumber || '',
+    }));
+  };
 
-  sgstPercent: '',
-  cgstPercent: '',
-  igstPercent: '',
-
-  lrNo: '',
-  grnNo: '',
-  grnDate: '',
-
-  specialInstruction: 'Do not stack heavy items on top. Deliver during working hours only.',
-
-  preparedBy: 'MOHIT KAREL',
-
-  amountInWords: '',
-
-  rpeType: 'PALLET',
-  rpeId: 'RPE123',
-  rpeQty: '',
-  rpeRemarks: 'Returnable pallets in good condition'
-});
+  const handleAutofillConsignee = (clientId) => {
+    if (!clientId) return;
+    const client = clients.find(c => c._id === clientId);
+    if (!client) return;
+    const address = client.address || client.billingAddress || '';
+    const pinMatch = address.match(/\b\d{6}\b/);
+    setFormData(prev => ({
+      ...prev,
+      consigneeName: client.companyName || client.fullName || '',
+      consigneeAddress: address,
+      consigneePin: pinMatch ? pinMatch[0] : prev.consigneePin || '',
+      consigneeMob: client.contact || '',
+      consigneeGst: client.gstNumber || '',
+    }));
+  };
 
   // Load LR data if editing
   useEffect(() => {
@@ -134,7 +231,125 @@ const [formData, setFormData] = useState({
     }
   };
 
+  const handleDocumentUpload = async (e, type) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Only image (JPG, PNG) and PDF files are allowed');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size must be less than 10MB');
+      return;
+    }
+
+    try {
+      if (type === 'invoice') setUploadingInvoice(true);
+      else setUploadingBill(true);
+
+      const token = localStorage.getItem('token');
+      const formDataObj = new FormData();
+      formDataObj.append('document', file);
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/lrs/upload-document`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formDataObj
+      });
+
+      const resData = await response.json();
+
+      if (response.ok && resData.success) {
+        setFormData(prev => ({
+          ...prev,
+          [type === 'invoice' ? 'invoiceDocument' : 'billDocument']: resData.data
+        }));
+        toast.success(`${type === 'invoice' ? 'Invoice' : 'Bill'} document uploaded successfully. Click Save/Update to persist changes!`);
+      } else {
+        toast.error(resData.message || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Error uploading file');
+    } finally {
+      if (type === 'invoice') setUploadingInvoice(false);
+      else setUploadingBill(false);
+    }
+  };
+
+  const handleDocumentDelete = async (type) => {
+    const documentObj = type === 'invoice' ? formData.invoiceDocument : formData.billDocument;
+    if (!documentObj?.publicId) return;
+
+    try {
+      if (type === 'invoice') setUploadingInvoice(true);
+      else setUploadingBill(true);
+
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/lrs/delete-document`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          publicId: documentObj.publicId,
+          lrId: lrId || null,
+          documentType: type === 'invoice' ? 'invoiceDocument' : 'billDocument'
+        })
+      });
+
+      const resData = await response.json();
+
+      if (response.ok && resData.success) {
+        setFormData(prev => ({
+          ...prev,
+          [type === 'invoice' ? 'invoiceDocument' : 'billDocument']: null
+        }));
+        toast.success(`${type === 'invoice' ? 'Invoice' : 'Bill'} document removed successfully.`);
+      } else {
+        toast.error(resData.message || 'Delete failed');
+      }
+    } catch (error) {
+      console.error('Delete document error:', error);
+      toast.error('Error deleting document');
+    } finally {
+      if (type === 'invoice') setUploadingInvoice(false);
+      else setUploadingBill(false);
+    }
+  };
+
+  const handleClientSearch = async (queryValue) => {
+    setClientSearchQuery(queryValue);
+    try {
+      setSearchingClients(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clients/search-dropdown?search=${encodeURIComponent(queryValue)}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setClients(data.data || []);
+      }
+    } catch (error) {
+      console.error('Error searching clients:', error);
+    } finally {
+      setSearchingClients(false);
+    }
+  };
+
   const saveLR = async () => {
+    if (!formData.consignmentNo || !formData.consignmentNo.trim()) {
+      toast.error('Consignment No is required!');
+      return;
+    }
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
@@ -399,11 +614,43 @@ window.onload = function() {
           </div>
         </div>
 
-       
+            <div className="space-y-4 pb-20">
+          {/* Client Search Bar */}
+          <div className="bg-white p-3 rounded shadow-sm border border-blue-200">
+            <label className="text-xs font-bold text-blue-700 block mb-1">🔍 SEARCH CLIENT (Consignor/Consignee/Customer)</label>
+            <div className="relative">
+              <input 
+                type="text" 
+                value={clientSearchQuery}
+                onChange={(e) => handleClientSearch(e.target.value)}
+                placeholder="Type client name or company name to search..." 
+                className="w-full p-2 border rounded text-xs bg-blue-50 focus:bg-white transition-colors pr-8 font-semibold"
+              />
+              {searchingClients && (
+                <div className="absolute right-2.5 top-2.5">
+                  <Loader2 className="animate-spin text-blue-500" size={14} />
+                </div>
+              )}
+            </div>
+            <span className="text-[9px] text-gray-400 mt-1 block">Typing will update Consignor, Consignee & Customer dropdowns below.</span>
+          </div>
 
-        <div className="space-y-4 pb-20">
           <div className="bg-white p-3 rounded shadow-sm">
             <h2 className="text-sm font-bold mb-2 border-b">Consignor Details</h2>
+            <div className="mb-2">
+              <select
+                onChange={(e) => handleAutofillConsignor(e.target.value)}
+                className="w-full p-1 border text-xs bg-blue-50 font-semibold rounded"
+                defaultValue=""
+              >
+                <option value="">-- Select Consignor Client to Autofill --</option>
+                {clients.map(c => (
+                  <option key={c._id} value={c._id}>
+                    {c.companyName || c.fullName}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <input type="text" name="consignorName" value={formData.consignorName} onChange={handleChange} className="p-1 border text-sm" placeholder="Consignor Name" />
               <input type="text" name="consignorCode" value={formData.consignorCode} onChange={handleChange} className="p-1 border text-sm" placeholder="Consignor Code" />
@@ -416,6 +663,20 @@ window.onload = function() {
 
           <div className="bg-white p-3 rounded shadow-sm">
             <h2 className="text-sm font-bold mb-2 border-b">Consignee Details</h2>
+            <div className="mb-2">
+              <select
+                onChange={(e) => handleAutofillConsignee(e.target.value)}
+                className="w-full p-1 border text-xs bg-blue-50 font-semibold rounded"
+                defaultValue=""
+              >
+                <option value="">-- Select Consignee Client to Autofill --</option>
+                {clients.map(c => (
+                  <option key={c._id} value={c._id}>
+                    {c.companyName || c.fullName}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <input type="text" name="consigneeName" value={formData.consigneeName} onChange={handleChange} className="p-1 border text-sm" placeholder="Consignee Name" />
               <input type="text" name="consigneeCode" value={formData.consigneeCode} onChange={handleChange} className="p-1 border text-sm" placeholder="Consignee Code" />
@@ -428,6 +689,25 @@ window.onload = function() {
 
           <div className="bg-white p-3 rounded shadow-sm">
             <h2 className="text-sm font-bold mb-2 border-b">Booking Info</h2>
+            <div className="mb-2">
+              <select
+                onChange={(e) => {
+                  const client = clients.find(c => c._id === e.target.value);
+                  if (client) {
+                    setFormData(prev => ({ ...prev, customerName: client.companyName || client.fullName || '' }));
+                  }
+                }}
+                className="w-full p-1 border text-xs bg-blue-50 font-semibold rounded"
+                defaultValue=""
+              >
+                <option value="">-- Autofill Customer Name from Clients --</option>
+                {clients.map(c => (
+                  <option key={c._id} value={c._id}>
+                    {c.companyName || c.fullName}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <input type="text" name="consignmentNo" value={formData.consignmentNo} onChange={handleChange} className="p-1 border text-sm" placeholder="Consignment No" />
               <input type="text" name="customerName" value={formData.customerName} onChange={handleChange} className="p-1 border text-sm" placeholder="Customer Name" />
@@ -517,6 +797,126 @@ window.onload = function() {
                 <input type="text" value={inv.noOfPcs} onChange={(e) => handleArrayChange(idx, 'invoices', 'noOfPcs', e.target.value)} className="p-1 border text-[10px]" placeholder="Pcs" />
               </div>
             ))}
+          </div>
+
+          {/* Documents Upload Section */}
+          <div className="bg-white p-3 rounded shadow-sm">
+            <h2 className="text-sm font-bold mb-3 border-b pb-1">Upload Documents (PDF / Images)</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* Invoice Upload */}
+              <div className="border border-dashed border-gray-300 rounded p-3 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors">
+                <span className="text-xs font-bold text-gray-700 mb-2 uppercase">Invoice Document</span>
+                
+                {formData.invoiceDocument?.url ? (
+                  <div className="w-full flex flex-col items-center">
+                    <div className="flex items-center gap-2 mb-2 p-1.5 bg-green-50 border border-green-200 rounded w-full justify-between">
+                      <div className="flex items-center gap-1.5 overflow-hidden">
+                        <FileText size={16} className="text-green-600 flex-shrink-0" />
+                        <span className="text-[10px] font-semibold text-green-800 truncate">Uploaded Invoice</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <a 
+                          href={formData.invoiceDocument.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="p-1 hover:bg-green-100 rounded text-green-700"
+                          title="View"
+                        >
+                          <Eye size={14} />
+                        </a>
+                        <button 
+                          onClick={() => handleDocumentDelete('invoice')}
+                          disabled={uploadingInvoice}
+                          className="p-1 hover:bg-red-100 rounded text-red-600 disabled:opacity-50"
+                          title="Delete"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer flex flex-col items-center w-full">
+                    {uploadingInvoice ? (
+                      <div className="flex flex-col items-center py-2">
+                        <Loader2 className="animate-spin text-blue-600 mb-1" size={20} />
+                        <span className="text-[10px] text-gray-500 font-semibold">Uploading...</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center py-2">
+                        <Upload size={20} className="text-blue-500 mb-1" />
+                        <span className="text-[10px] text-blue-600 font-bold hover:underline">Select Invoice File</span>
+                        <span className="text-[8px] text-gray-400 mt-0.5">PDF or Image (Max 10MB)</span>
+                      </div>
+                    )}
+                    <input 
+                      type="file" 
+                      accept=".pdf,.jpg,.jpeg,.png" 
+                      onChange={(e) => handleDocumentUpload(e, 'invoice')}
+                      className="hidden" 
+                      disabled={uploadingInvoice || uploadingBill}
+                    />
+                  </label>
+                )}
+              </div>
+
+              {/* Bill Upload */}
+              <div className="border border-dashed border-gray-300 rounded p-3 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors">
+                <span className="text-xs font-bold text-gray-700 mb-2 uppercase">Bill Document</span>
+                
+                {formData.billDocument?.url ? (
+                  <div className="w-full flex flex-col items-center">
+                    <div className="flex items-center gap-2 mb-2 p-1.5 bg-green-50 border border-green-200 rounded w-full justify-between">
+                      <div className="flex items-center gap-1.5 overflow-hidden">
+                        <FileText size={16} className="text-green-600 flex-shrink-0" />
+                        <span className="text-[10px] font-semibold text-green-800 truncate">Uploaded Bill</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <a 
+                          href={formData.billDocument.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="p-1 hover:bg-green-100 rounded text-green-700"
+                          title="View"
+                        >
+                          <Eye size={14} />
+                        </a>
+                        <button 
+                          onClick={() => handleDocumentDelete('bill')}
+                          disabled={uploadingBill}
+                          className="p-1 hover:bg-red-100 rounded text-red-600 disabled:opacity-50"
+                          title="Delete"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer flex flex-col items-center w-full">
+                    {uploadingBill ? (
+                      <div className="flex flex-col items-center py-2">
+                        <Loader2 className="animate-spin text-blue-600 mb-1" size={20} />
+                        <span className="text-[10px] text-gray-500 font-semibold">Uploading...</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center py-2">
+                        <Upload size={20} className="text-blue-500 mb-1" />
+                        <span className="text-[10px] text-blue-600 font-bold hover:underline">Select Bill File</span>
+                        <span className="text-[8px] text-gray-400 mt-0.5">PDF or Image (Max 10MB)</span>
+                      </div>
+                    )}
+                    <input 
+                      type="file" 
+                      accept=".pdf,.jpg,.jpeg,.png" 
+                      onChange={(e) => handleDocumentUpload(e, 'bill')}
+                      className="hidden" 
+                      disabled={uploadingInvoice || uploadingBill}
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="bg-white p-3 rounded shadow-sm">

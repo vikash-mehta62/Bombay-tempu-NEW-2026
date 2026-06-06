@@ -867,66 +867,87 @@ export default function VehicleViewModal({ isOpen, onClose, vehicle }) {
         {/* Loan Information Tab */}
         {activeTab === 'loan' && (
           <>
-            {vehicle.hasLoan && vehicle.loanDetails ? (
-              <div>
-                <div className="flex items-center space-x-2 mb-4">
-                  <CreditCard className="w-5 h-5 text-blue-600" />
-                  <h3 className="text-lg font-semibold text-gray-900">Loan Information</h3>
-                </div>
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-lg space-y-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                      <p className="text-xs text-gray-600">Loan Amount</p>
-                      <p className="text-sm font-bold text-gray-900">{formatCurrency(vehicle.loanDetails.loanAmount)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600">EMI Amount</p>
-                      <p className="text-sm font-bold text-gray-900">{formatCurrency(vehicle.loanDetails.emiAmount)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600">Loan Tenure</p>
-                      <p className="text-sm font-bold text-gray-900">{vehicle.loanDetails.loanTenure} months</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600">Loan Provider</p>
-                      <p className="text-sm font-bold text-gray-900">{vehicle.loanDetails.loanProvider || 'N/A'}</p>
-                    </div>
-                  </div>
+            {vehicle.hasLoan && vehicle.loanDetails ? (() => {
+              const startDate = vehicle.loanDetails.loanStartDate ? new Date(vehicle.loanDetails.loanStartDate) : null;
+              const currentDate = new Date();
+              
+              // Calculate elapsed months
+              let elapsedMonths = 0;
+              if (startDate && !isNaN(startDate.getTime())) {
+                const monthsDiff = (currentDate.getFullYear() - startDate.getFullYear()) * 12 + 
+                                   (currentDate.getMonth() - startDate.getMonth());
+                elapsedMonths = Math.max(0, monthsDiff);
+              }
+              
+              const emiAmount = parseFloat(vehicle.loanDetails.emiAmount || 0);
+              const loanAmount = parseFloat(vehicle.loanDetails.loanAmount || 0);
+              const totalPaid = elapsedMonths * emiAmount;
+              const remainingAmount = Math.max(0, loanAmount - totalPaid);
+              const loanTenure = parseInt(vehicle.loanDetails.loanTenure || 0);
+              const remainingMonths = Math.max(0, loanTenure - elapsedMonths);
+              const loanProgress = loanAmount > 0 ? Math.min(100, (totalPaid / loanAmount) * 100) : 0;
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-blue-200">
-                    <div className="bg-white p-3 rounded-lg">
-                      <p className="text-xs text-gray-600">Elapsed Months</p>
-                      <p className="text-lg font-bold text-blue-600">{vehicle.loanDetails.elapsedMonths || 0}</p>
-                    </div>
-                    <div className="bg-white p-3 rounded-lg">
-                      <p className="text-xs text-gray-600">Total Paid</p>
-                      <p className="text-lg font-bold text-green-600">{formatCurrency(vehicle.loanDetails.totalPaid)}</p>
-                    </div>
-                    <div className="bg-white p-3 rounded-lg">
-                      <p className="text-xs text-gray-600">Remaining Amount</p>
-                      <p className="text-lg font-bold text-orange-600">{formatCurrency(vehicle.loanDetails.remainingAmount)}</p>
-                    </div>
-                    <div className="bg-white p-3 rounded-lg">
-                      <p className="text-xs text-gray-600">Remaining Months</p>
-                      <p className="text-lg font-bold text-purple-600">{vehicle.loanDetails.remainingMonths || 0}</p>
-                    </div>
+              return (
+                <div>
+                  <div className="flex items-center space-x-2 mb-4">
+                    <CreditCard className="w-5 h-5 text-blue-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">Loan Information</h3>
                   </div>
-
-                  <div className="pt-2">
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-gray-700 font-medium">Loan Progress</span>
-                      <span className="text-blue-600 font-bold">{(vehicle.loanDetails.loanProgress || 0).toFixed(1)}%</span>
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-lg space-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-600">Loan Amount</p>
+                        <p className="text-sm font-bold text-gray-900">{formatCurrency(loanAmount)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600">EMI Amount</p>
+                        <p className="text-sm font-bold text-gray-900">{formatCurrency(emiAmount)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600">Loan Tenure</p>
+                        <p className="text-sm font-bold text-gray-900">{loanTenure} months</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600">Loan Provider</p>
+                        <p className="text-sm font-bold text-gray-900">{vehicle.loanDetails.loanProvider || 'N/A'}</p>
+                      </div>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                      <div 
-                        className="bg-gradient-to-r from-blue-500 to-green-500 h-3 rounded-full transition-all"
-                        style={{ width: `${vehicle.loanDetails.loanProgress || 0}%` }}
-                      ></div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-blue-200">
+                      <div className="bg-white p-3 rounded-lg">
+                        <p className="text-xs text-gray-600">Elapsed Months</p>
+                        <p className="text-lg font-bold text-blue-600">{elapsedMonths}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg">
+                        <p className="text-xs text-gray-600">Total Paid</p>
+                        <p className="text-lg font-bold text-green-600">{formatCurrency(totalPaid)}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg">
+                        <p className="text-xs text-gray-600">Remaining Amount</p>
+                        <p className="text-lg font-bold text-orange-600">{formatCurrency(remainingAmount)}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg">
+                        <p className="text-xs text-gray-600">Remaining Months</p>
+                        <p className="text-lg font-bold text-purple-600">{remainingMonths}</p>
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                      <div className="flex justify-between text-sm mb-2">
+                        <span className="text-gray-700 font-medium">Loan Progress</span>
+                        <span className="text-blue-600 font-bold">{loanProgress.toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-blue-500 to-green-500 h-3 rounded-full transition-all"
+                          style={{ width: `${loanProgress}%` }}
+                        ></div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ) : (
+              );
+            })() : (
               <div className="text-center py-12">
                 <CreditCard className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <p className="text-gray-500 text-lg font-medium">No Loan Information</p>

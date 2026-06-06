@@ -12,6 +12,9 @@ router.get('/', clientController.getAllClients);
 // Get client statistics
 router.get('/stats', authorize('admin'), clientController.getClientStats);
 
+// Search clients dropdown (lightweight)
+router.get('/search-dropdown', clientController.searchClientsDropdown);
+
 // Get client statement with transactions
 router.get('/:id/statement', clientController.getClientStatement);
 

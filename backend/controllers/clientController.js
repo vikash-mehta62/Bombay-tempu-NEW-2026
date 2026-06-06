@@ -515,3 +515,38 @@ exports.getClientStatement = async (req, res) => {
     });
   }
 };
+
+// Search clients for dropdown autofill (lightweight route)
+exports.searchClientsDropdown = async (req, res) => {
+  try {
+    const { search } = req.query;
+    
+    let query = { isActive: true, status: 'active' };
+    
+    if (search) {
+      query.$or = [
+        { fullName: { $regex: search, $options: 'i' } },
+        { companyName: { $regex: search, $options: 'i' } },
+        { contact: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    // Select only needed fields to reduce database/network payload
+    const clients = await Client.find(query)
+      .select('fullName companyName contact address billingAddress gstNumber')
+      .sort({ companyName: 1, fullName: 1 })
+      .limit(50); // limit to top 50 results to keep it super fast
+      
+    res.json({
+      success: true,
+      data: clients
+    });
+  } catch (error) {
+    console.error('Search clients dropdown error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};

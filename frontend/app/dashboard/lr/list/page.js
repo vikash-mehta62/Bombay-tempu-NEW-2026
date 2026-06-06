@@ -104,7 +104,33 @@ export default function LRListPage() {
             <tbody>
               {lrs.map((lr) => (
                 <tr key={lr._id} className="border-b hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-bold text-blue-600">{lr.consignmentNo}</td>
+                  <td className="px-4 py-3 text-sm font-bold text-blue-600">
+                    <div className="flex items-center gap-2">
+                      <span>{lr.consignmentNo}</span>
+                      {lr.invoiceDocument?.url && (
+                        <a
+                          href={lr.invoiceDocument.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-green-600 hover:text-green-800 flex items-center justify-center p-0.5 hover:bg-green-50 rounded"
+                          title="View Invoice"
+                        >
+                          <FileText size={15} />
+                        </a>
+                      )}
+                      {lr.billDocument?.url && (
+                        <a
+                          href={lr.billDocument.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-orange-500 hover:text-orange-700 flex items-center justify-center p-0.5 hover:bg-orange-50 rounded"
+                          title="View Bill"
+                        >
+                          <FileText size={15} />
+                        </a>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-sm">{lr.from || '-'}</td>
                   <td className="px-4 py-3 text-sm">{lr.to || '-'}</td>
                   <td className="px-4 py-3 text-sm">{lr.consignorName || '-'}</td>

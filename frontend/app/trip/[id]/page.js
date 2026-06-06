@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { tripAPI } from '@/lib/api';
+import { tripAPI, clientPODAPI, balanceMemoAPI, collectionMemoAPI } from '@/lib/api';
 import { toast } from 'sonner';
-import { ArrowLeft, Truck, MapPin, Calendar, User, Building2, Package } from 'lucide-react';
+import { ArrowLeft, Truck, MapPin, Calendar, User, Building2, Package, FileText } from 'lucide-react';
 
 export default function PublicTripPage() {
   const params = useParams();
@@ -13,12 +13,55 @@ export default function PublicTripPage() {
   const { user, loading: authLoading } = useAuth();
   const [trip, setTrip] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [pod, setPod] = useState(null);
+  const [balanceMemos, setBalanceMemos] = useState([]);
+  const [collectionMemos, setCollectionMemos] = useState([]);
+  const [loadingDocs, setLoadingDocs] = useState(false);
 
   useEffect(() => {
     if (!authLoading && user && params.id) {
       loadTrip();
     }
   }, [authLoading, user, params.id]);
+
+  useEffect(() => {
+    if (trip && user) {
+      loadTripDocuments();
+    }
+  }, [trip, user]);
+
+  const loadTripDocuments = async () => {
+    try {
+      setLoadingDocs(true);
+      let clientId = user.role === 'client' ? user._id : trip.clients?.[0]?.clientId?._id;
+      if (clientId) {
+        try {
+          const podResponse = await clientPODAPI.getByTripAndClient(trip._id, clientId);
+          setPod(podResponse.data.data);
+        } catch (e) {
+          console.log('No POD found for this trip and client');
+        }
+      }
+
+      try {
+        const balanceResponse = await balanceMemoAPI.getByTrip(trip._id);
+        setBalanceMemos(balanceResponse.data.data || []);
+      } catch (e) {
+        console.log('No balance memos found');
+      }
+
+      try {
+        const collectionResponse = await collectionMemoAPI.getByTrip(trip._id);
+        setCollectionMemos(collectionResponse.data.data || []);
+      } catch (e) {
+        console.log('No collection memos found');
+      }
+    } catch (error) {
+      console.error('Error loading documents:', error);
+    } finally {
+      setLoadingDocs(false);
+    }
+  };
 
   const loadTrip = async () => {
     try {
@@ -288,6 +331,101 @@ export default function PublicTripPage() {
             </div>
           </div>
         )}
+
+        {/* Documents & Memos Section */}
+        <div className="card bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <h2 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b">Documents & Memos (Read-Only)</h2>
+          
+          {loadingDocs ? (
+            <div className="flex items-center justify-center py-6">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              
+              {/* POD Documents */}
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <h3 className="font-bold text-gray-800 text-sm mb-3 uppercase flex items-center gap-1.5 border-b pb-1">
+                  <FileText className="w-4 h-4 text-blue-600" />
+                  POD Documents
+                </h3>
+                {pod?.documents && pod.documents.length > 0 ? (
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {pod.documents.map((doc, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-xs p-2 bg-white rounded border border-gray-200 shadow-xs">
+                        <span className="font-semibold text-gray-700 truncate max-w-[130px]" title={doc.trackingNumber || `Doc #${idx + 1}`}>
+                          {doc.trackingNumber ? `Tracking: ${doc.trackingNumber}` : `Doc #${idx + 1}`}
+                        </span>
+                        {doc.documentUrl && doc.documentUrl.startsWith('http') ? (
+                          <a 
+                            href={doc.documentUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-600 font-bold hover:underline"
+                          >
+                            View File
+                          </a>
+                        ) : (
+                          <span className="text-gray-400 italic">No File</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 italic">No POD documents uploaded.</p>
+                )}
+              </div>
+
+              {/* Balance Memos */}
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <h3 className="font-bold text-gray-800 text-sm mb-3 uppercase flex items-center gap-1.5 border-b pb-1">
+                  <FileText className="w-4 h-4 text-orange-600" />
+                  Balance Memos
+                </h3>
+                {balanceMemos.length > 0 ? (
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {balanceMemos.map((memo, idx) => (
+                      <div key={idx} className="p-2 bg-white rounded border border-gray-200 shadow-xs text-xs space-y-1">
+                        <div className="flex justify-between font-semibold">
+                          <span className="text-gray-700">Memo #{memo.memoNumber || idx + 1}</span>
+                          <span className="text-orange-600">₹{memo.amount?.toLocaleString('en-IN') || 0}</span>
+                        </div>
+                        {memo.remarks && <p className="text-[10px] text-gray-500 italic truncate" title={memo.remarks}>{memo.remarks}</p>}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 italic">No balance memos found.</p>
+                )}
+              </div>
+
+              {/* Collection Memos */}
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <h3 className="font-bold text-gray-800 text-sm mb-3 uppercase flex items-center gap-1.5 border-b pb-1">
+                  <FileText className="w-4 h-4 text-green-600" />
+                  Collection Memos
+                </h3>
+                {collectionMemos.length > 0 ? (
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {collectionMemos.map((memo, idx) => (
+                      <div key={idx} className="p-2 bg-white rounded border border-gray-200 shadow-xs text-xs space-y-1">
+                        <div className="flex justify-between font-semibold">
+                          <span className="text-gray-700">Memo #{memo.memoNumber || idx + 1}</span>
+                          <span className="text-green-600">₹{memo.amountCollected?.toLocaleString('en-IN') || 0}</span>
+                        </div>
+                        {memo.receivedBy && <p className="text-[10px] text-gray-500">Collected by: {memo.receivedBy}</p>}
+                        {memo.remarks && <p className="text-[10px] text-gray-500 italic truncate" title={memo.remarks}>{memo.remarks}</p>}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 italic">No collection memos found.</p>
+                )}
+              </div>
+
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

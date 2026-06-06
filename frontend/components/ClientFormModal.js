@@ -254,7 +254,7 @@ export default function ClientFormModal({ isOpen, onClose, onSuccess, editData =
                 ></textarea>
               </div>
 
-              <div>
+              {/* <div>
                 <label className="label">Credit Limit (₹)</label>
                 <input
                   type="number"
@@ -265,7 +265,7 @@ export default function ClientFormModal({ isOpen, onClose, onSuccess, editData =
                   placeholder="50000"
                   min="0"
                 />
-              </div>
+              </div> */}
             </div>
           </div>
         </div>

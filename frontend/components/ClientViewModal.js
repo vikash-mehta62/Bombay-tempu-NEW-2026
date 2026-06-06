@@ -28,7 +28,7 @@ import 'jspdf-autotable';
 import { generateClientReceipt, generateClientBalanceStatement, generateClientAdjustmentStatement } from '@/utils/receiptGenerator';
 
 // Client Payment Statement Tab Component
-function ClientPaymentStatementTab({ client, formatCurrency, isAdminView = true }) {
+export function ClientPaymentStatementTab({ client, formatCurrency, isAdminView = true }) {
   const router = useRouter();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -473,11 +473,11 @@ function ClientPaymentStatementTab({ client, formatCurrency, isAdminView = true 
                   <tr key={txn.id} className="hover:bg-gray-50">
                     <td className="px-3 py-2 font-medium">
                       <a 
-                        href={user?.role === 'user' ? `/trip/${txn.tripId}` : `/dashboard/trips/${txn.tripId}`}
+                        href={(user?.role === 'admin' || user?.role === 'sub_admin') ? `/dashboard/trips/${txn.tripId}` : `/trip/${txn.tripId}`}
                         className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
                         onClick={(e) => {
                           e.preventDefault();
-                          window.location.href = user?.role === 'user' ? `/trip/${txn.tripId}` : `/dashboard/trips/${txn.tripId}`;
+                          window.location.href = (user?.role === 'admin' || user?.role === 'sub_admin') ? `/dashboard/trips/${txn.tripId}` : `/trip/${txn.tripId}`;
                         }}
                       >
                         {txn.tripNumber}
@@ -633,7 +633,7 @@ function ClientPaymentStatementTab({ client, formatCurrency, isAdminView = true 
                       <div>
                         <button
                           onClick={() => {
-                            const url = user?.role === 'user' ? `/trip/${trip.tripId}` : `/dashboard/trips/${trip.tripId}`;
+                            const url = (user?.role === 'admin' || user?.role === 'sub_admin') ? `/dashboard/trips/${trip.tripId}` : `/trip/${trip.tripId}`;
                             router.push(url);
                           }}
                           className="font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer text-left"
@@ -921,7 +921,7 @@ function ClientPaymentModal({ isOpen, onClose, trip, client, onSuccess }) {
 }
 
 // Adjustment Tab Component
-function ClientAdjustmentTab({ client, formatCurrency, isAdminView = false }) {
+export function ClientAdjustmentTab({ client, formatCurrency, isAdminView = false }) {
   const [loading, setLoading] = useState(true);
   const [adjustmentTrips, setAdjustmentTrips] = useState([]);
   const [adjustmentPayments, setAdjustmentPayments] = useState({});
@@ -1168,7 +1168,7 @@ function ClientAdjustmentTab({ client, formatCurrency, isAdminView = false }) {
                   <div>
                     <button
                       onClick={() => {
-                        const url = user?.role === 'user' ? `/trip/${trip._id}` : `/dashboard/trips/${trip._id}`;
+                        const url = (user?.role === 'admin' || user?.role === 'sub_admin') ? `/dashboard/trips/${trip._id}` : `/trip/${trip._id}`;
                         router.push(url);
                       }}
                       className="font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer text-left"

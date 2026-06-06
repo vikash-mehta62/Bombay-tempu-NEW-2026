@@ -87,7 +87,19 @@ const lrSchema = new mongoose.Schema({
   grnDate: { type: String },
   specialInstruction: { type: String },
   preparedBy: { type: String, default: 'MOHIT KAREL' },
-  amountInWords: { type: String }
+  amountInWords: { type: String },
+
+  // Invoice/Bill Document Upload
+  invoiceDocument: {
+    url: String,
+    publicId: String,
+    uploadedAt: Date
+  },
+  billDocument: {
+    url: String,
+    publicId: String,
+    uploadedAt: Date
+  }
 }, {
   timestamps: true
 });

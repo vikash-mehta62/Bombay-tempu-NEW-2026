@@ -1,19 +1,27 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { User, Phone, Mail, MapPin, Truck, FileText, Calendar, Building2, Edit } from 'lucide-react';
 import { driverAPI, fleetOwnerAPI, clientAPI, tripAPI } from '@/lib/api';
 import { toast } from 'sonner';
 import DriverViewModal from '@/components/DriverViewModal';
 import VehicleViewModal from '@/components/VehicleViewModal';
-import ClientViewModal from '@/components/ClientViewModal';
+import ClientViewModal, { ClientPaymentStatementTab } from '@/components/ClientViewModal';
 import FleetOwnerViewModal from '@/components/FleetOwnerViewModal';
 import DriverFormModal from '@/components/DriverFormModal';
 import ClientFormModal from '@/components/ClientFormModal';
 import FleetOwnerFormModal from '@/components/FleetOwnerFormModal';
 
 export default function UserDashboard() {
+  const formatCurrency = (amount) => {
+    if (!amount) return '₹0';
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
   const { user } = useAuth();
   const [userData, setUserData] = useState(null);
   const [trips, setTrips] = useState([]);
@@ -197,87 +205,98 @@ export default function UserDashboard() {
           </div>
         </div>
 
-        {/* Trips Section */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-900">My Trips</h2>
-            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-              {trips.length} Total
-            </span>
+        {/* Client Payment Statement Tab or Standard Trips Section */}
+        {user.role === 'client' && userData ? (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4 pb-2 border-b">My Payment Statement & Trip Details</h2>
+            <ClientPaymentStatementTab 
+              client={userData} 
+              formatCurrency={formatCurrency} 
+              isAdminView={false} 
+            />
           </div>
+        ) : (
+          <div className="card">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900">My Trips</h2>
+              <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                {trips.length} Total
+              </span>
+            </div>
 
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
-          ) : trips.length === 0 ? (
-            <div className="text-center py-12">
-              <Truck className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">No trips found</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {trips.map((trip) => {
-                const firstClient = trip.clients?.[0];
-                const fromCity = firstClient?.originCity?.cityName || 'N/A';
-                const toCity = firstClient?.destinationCity?.cityName || 'N/A';
-                
-                return (
-                  <div
-                    key={trip._id}
-                    className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => window.location.href = `/trip/${trip._id}`}
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <Truck className="w-5 h-5 text-blue-600" />
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : trips.length === 0 ? (
+              <div className="text-center py-12">
+                <Truck className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">No trips found</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {trips.map((trip) => {
+                  const firstClient = trip.clients?.[0];
+                  const fromCity = firstClient?.originCity?.cityName || 'N/A';
+                  const toCity = firstClient?.destinationCity?.cityName || 'N/A';
+                  
+                  return (
+                    <div
+                      key={trip._id}
+                      className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => window.location.href = `/trip/${trip._id}`}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                            <Truck className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-gray-900">{trip.tripNumber}</h3>
+                            <p className="text-sm text-gray-500">
+                              {formatDate(trip.loadDate)}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          trip.status === 'completed' ? 'bg-green-100 text-green-800' :
+                          trip.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {trip.status}
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <p className="text-gray-500">From</p>
+                          <p className="font-medium text-gray-900">{fromCity}</p>
                         </div>
                         <div>
-                          <h3 className="font-bold text-gray-900">{trip.tripNumber}</h3>
-                          <p className="text-sm text-gray-500">
-                            {formatDate(trip.loadDate)}
+                          <p className="text-gray-500">To</p>
+                          <p className="font-medium text-gray-900">{toCity}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Vehicle</p>
+                          <p className="font-medium text-gray-900">
+                            {trip.vehicleId?.vehicleNumber || 'N/A'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Driver</p>
+                          <p className="font-medium text-gray-900">
+                            {trip.driverId?.fullName || 'N/A'}
                           </p>
                         </div>
                       </div>
-                      
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        trip.status === 'completed' ? 'bg-green-100 text-green-800' :
-                        trip.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {trip.status}
-                      </span>
                     </div>
-                    
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <p className="text-gray-500">From</p>
-                        <p className="font-medium text-gray-900">{fromCity}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">To</p>
-                        <p className="font-medium text-gray-900">{toCity}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">Vehicle</p>
-                        <p className="font-medium text-gray-900">
-                          {trip.vehicleId?.vehicleNumber || 'N/A'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">Driver</p>
-                        <p className="font-medium text-gray-900">
-                          {trip.driverId?.fullName || 'N/A'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Profile Modal */}

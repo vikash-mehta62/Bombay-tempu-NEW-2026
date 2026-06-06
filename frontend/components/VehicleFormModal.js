@@ -74,6 +74,13 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
     description: ''
   });
 
+  const formatDateForInput = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '';
+    return date.toISOString().split('T')[0];
+  };
+
   useEffect(() => {
     if (isOpen) {
       loadFleetOwners();
@@ -81,8 +88,18 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
       if (editData) {
         setFormData({
           ...editData,
+          registrationDate: formatDateForInput(editData.registrationDate),
+          fitnessExpiryDate: formatDateForInput(editData.fitnessExpiryDate),
+          insuranceExpiryDate: formatDateForInput(editData.insuranceExpiryDate),
+          pucExpiryDate: formatDateForInput(editData.pucExpiryDate),
+          permitExpiryDate: formatDateForInput(editData.permitExpiryDate),
+          nationalPermitExpiryDate: formatDateForInput(editData.nationalPermitExpiryDate),
+          taxValidUptoDate: formatDateForInput(editData.taxValidUptoDate),
           defaultDriverId: editData.defaultDriverId?._id || '',
-          loanDetails: editData.loanDetails || {
+          loanDetails: editData.loanDetails ? {
+            ...editData.loanDetails,
+            loanStartDate: formatDateForInput(editData.loanDetails.loanStartDate)
+          } : {
             loanAmount: '',
             emiAmount: '',
             loanTenure: '',
@@ -213,9 +230,14 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
         submitData.capacityTons = undefined;
       }
       
-      // Remove loan details if no loan
+      // Remove loan details if no loan, otherwise add calculations
       if (!submitData.hasLoan) {
         submitData.loanDetails = {};
+      } else if (submitData.loanDetails) {
+        submitData.loanDetails = {
+          ...submitData.loanDetails,
+          ...loanCalculations
+        };
       }
 
       if (editData) {
