@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const companyPlugin = require('../utils/companyPlugin');
 
 const fleetOwnerSchema = new mongoose.Schema({
   fullName: {
@@ -37,7 +38,6 @@ const fleetOwnerSchema = new mongoose.Schema({
   // Login credentials
   username: {
     type: String,
-    unique: true,
     sparse: true,
     trim: true,
     lowercase: true
@@ -110,8 +110,9 @@ fleetOwnerSchema.methods.comparePassword = async function(candidatePassword) {
 };
 
 // Indexes
-fleetOwnerSchema.index({ contact: 1 });
-fleetOwnerSchema.index({ username: 1 });
+fleetOwnerSchema.index({ contact: 1, forCompany: 1 });
+fleetOwnerSchema.index({ username: 1, forCompany: 1 }, { unique: true, sparse: true });
 fleetOwnerSchema.index({ isActive: 1 });
+fleetOwnerSchema.plugin(companyPlugin);
 
 module.exports = mongoose.model('FleetOwner', fleetOwnerSchema);

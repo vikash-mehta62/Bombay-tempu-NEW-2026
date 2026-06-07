@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const companyPlugin = require('../utils/companyPlugin');
 
 const clientExpenseSchema = new mongoose.Schema({
   tripId: {
@@ -48,5 +49,6 @@ const clientExpenseSchema = new mongoose.Schema({
 // Indexes
 clientExpenseSchema.index({ tripId: 1 });
 clientExpenseSchema.index({ clientId: 1 });
+clientExpenseSchema.plugin(companyPlugin);
 
 module.exports = mongoose.model('ClientExpense', clientExpenseSchema);

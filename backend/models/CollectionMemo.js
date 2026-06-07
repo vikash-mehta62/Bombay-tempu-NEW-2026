@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const companyPlugin = require('../utils/companyPlugin');
 
 const collectionMemoSchema = new mongoose.Schema({
   tripId: {
@@ -75,5 +76,6 @@ const collectionMemoSchema = new mongoose.Schema({
 // Indexes
 collectionMemoSchema.index({ tripId: 1 });
 collectionMemoSchema.index({ clientId: 1 });
+collectionMemoSchema.plugin(companyPlugin);
 
 module.exports = mongoose.model('CollectionMemo', collectionMemoSchema);

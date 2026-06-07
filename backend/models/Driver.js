@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const companyPlugin = require('../utils/companyPlugin');
 
 const driverSchema = new mongoose.Schema({
   fullName: {
@@ -10,7 +11,6 @@ const driverSchema = new mongoose.Schema({
   contact: {
     type: String,
     required: [true, 'Contact number is required'],
-    unique: true,
     trim: true
   },
   email: {
@@ -26,7 +26,6 @@ const driverSchema = new mongoose.Schema({
   licenseNumber: {
     type: String,
     trim: true,
-    unique: true,
     sparse: true
   },
   licenseExpiry: {
@@ -111,9 +110,10 @@ driverSchema.methods.comparePassword = async function(candidatePassword) {
 };
 
 // Indexes
-driverSchema.index({ contact: 1 });
-driverSchema.index({ licenseNumber: 1 });
+driverSchema.index({ contact: 1, forCompany: 1 }, { unique: true });
+driverSchema.index({ licenseNumber: 1, forCompany: 1 }, { unique: true, sparse: true });
 driverSchema.index({ status: 1 });
 driverSchema.index({ isActive: 1 });
+driverSchema.plugin(companyPlugin);
 
 module.exports = mongoose.model('Driver', driverSchema);

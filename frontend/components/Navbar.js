@@ -1,13 +1,13 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
-import { Bell, LogOut, User, Menu } from 'lucide-react';
+import { Bell, Building2, LogOut, User, Menu } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
 import { useState } from 'react';
 import Link from 'next/link';
 
 export default function Navbar({ onMenuClick }) {
-  const { user, logout } = useAuth();
+  const { user, logout, currentCompany, companies, setCurrentCompany } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
 
   return (
@@ -32,6 +32,22 @@ export default function Navbar({ onMenuClick }) {
 
         {/* Right Section */}
         <div className="flex items-center space-x-2 md:space-x-4">
+          <label className="flex items-center gap-2 px-2 py-1.5 border border-gray-300 rounded-lg bg-white text-sm text-gray-700">
+            <Building2 className="w-4 h-4 text-gray-500" />
+            <select
+              value={currentCompany}
+              onChange={(event) => setCurrentCompany(event.target.value)}
+              className="bg-transparent focus:outline-none font-medium"
+              aria-label="Select company"
+            >
+              {companies.map((company) => (
+                <option key={company.value} value={company.value}>
+                  {company.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
           {/* Notifications */}
           <button className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg">
             <Bell className="w-5 h-5" />

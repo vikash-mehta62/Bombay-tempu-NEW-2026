@@ -12,6 +12,12 @@ router.get('/', tripController.getAllTrips);
 // Get trip statistics
 router.get('/stats', authorize('admin'), tripController.getTripStats);
 
+// Daily tracking management
+router.get('/tracking', authorize('admin'), tripController.getTrackingTrips);
+router.post('/:id/tracking', authorize('admin'), tripController.addTripTracking);
+router.put('/:id/tracking/:trackingId', authorize('admin'), tripController.updateTripTracking);
+router.delete('/:id/tracking/:trackingId', authorize('admin'), tripController.deleteTripTracking);
+
 // Get trips by driver ID
 router.get('/driver/:driverId', tripController.getTripsByDriver);
 

@@ -787,6 +787,232 @@ exports.getTripStats = async (req, res) => {
   }
 };
 
+// Get active trips for daily tracking
+exports.getTrackingTrips = async (req, res) => {
+  try {
+    const trips = await Trip.find({
+      isActive: true,
+      status: { $nin: ['completed', 'cancelled'] }
+    })
+      .populate({
+        path: 'vehicleId',
+        select: 'vehicleNumber vehicleType brand model ownershipType',
+        populate: {
+          path: 'fleetOwnerId',
+          select: 'fullName contact'
+        }
+      })
+      .populate('driverId', 'fullName contact')
+      .populate('clients.clientId', 'fullName companyName contact')
+      .populate('clients.originCity', 'cityName state')
+      .populate('clients.destinationCity', 'cityName state')
+      .populate('trackingHistory.addedBy', 'fullName username')
+      .sort({ loadDate: -1 });
+
+    res.json({
+      success: true,
+      data: trips,
+      count: trips.length
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch tracking trips',
+      error: error.message
+    });
+  }
+};
+
+// Add daily tracking location to a trip
+exports.addTripTracking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { trackingDate, location, statusNote, latitude, longitude } = req.body;
+
+    if (!location || !String(location).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Location is required'
+      });
+    }
+
+    const trip = await Trip.findById(id);
+    if (!trip) {
+      return res.status(404).json({
+        success: false,
+        message: 'Trip not found'
+      });
+    }
+
+    if (['completed', 'cancelled'].includes(trip.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tracking cannot be added to completed or cancelled trips'
+      });
+    }
+
+    const trackingEntry = {
+      trackingDate: trackingDate ? new Date(trackingDate) : new Date(),
+      location: String(location).trim(),
+      statusNote: statusNote || '',
+      latitude: latitude === '' || latitude === undefined ? null : Number(latitude),
+      longitude: longitude === '' || longitude === undefined ? null : Number(longitude),
+      addedBy: req.user?._id || null,
+      addedAt: new Date()
+    };
+
+    const updatedTrip = await Trip.findByIdAndUpdate(
+      id,
+      { $push: { trackingHistory: trackingEntry } },
+      { new: true, runValidators: true }
+    ).populate([
+      { path: 'vehicleId', select: 'vehicleNumber vehicleType brand model ownershipType' },
+      { path: 'driverId', select: 'fullName contact' },
+      { path: 'clients.clientId', select: 'fullName companyName contact' },
+      { path: 'clients.originCity', select: 'cityName state' },
+      { path: 'clients.destinationCity', select: 'cityName state' },
+      { path: 'trackingHistory.addedBy', select: 'fullName username' }
+    ]);
+
+    if (req.user) {
+      await createActivityLog({
+        user: req.user,
+        action: `Added tracking for trip ${trip.tripNumber} at ${location}`,
+        actionType: 'UPDATE',
+        module: 'Trip',
+        entityId: updatedTrip._id,
+        entityType: 'Trip',
+        details: { tripNumber: trip.tripNumber, location, trackingDate },
+        req
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Tracking added successfully',
+      data: updatedTrip
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to add tracking',
+      error: error.message
+    });
+  }
+};
+
+// Update a tracking entry
+exports.updateTripTracking = async (req, res) => {
+  try {
+    const { id, trackingId } = req.params;
+    const { trackingDate, location, statusNote, latitude, longitude } = req.body;
+
+    if (!location || !String(location).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Location is required'
+      });
+    }
+
+    const trip = await Trip.findById(id);
+    if (!trip) {
+      return res.status(404).json({
+        success: false,
+        message: 'Trip not found'
+      });
+    }
+
+    if (['completed', 'cancelled'].includes(trip.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tracking cannot be updated on completed or cancelled trips'
+      });
+    }
+
+    const tracking = trip.trackingHistory.id(trackingId);
+    if (!tracking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Tracking entry not found'
+      });
+    }
+
+    const updatedTrip = await Trip.findOneAndUpdate(
+      { _id: id, 'trackingHistory._id': trackingId },
+      {
+        $set: {
+          'trackingHistory.$.trackingDate': trackingDate ? new Date(trackingDate) : tracking.trackingDate,
+          'trackingHistory.$.location': String(location).trim(),
+          'trackingHistory.$.statusNote': statusNote || '',
+          'trackingHistory.$.latitude': latitude === '' || latitude === undefined ? null : Number(latitude),
+          'trackingHistory.$.longitude': longitude === '' || longitude === undefined ? null : Number(longitude)
+        }
+      },
+      { new: true, runValidators: true }
+    ).populate('trackingHistory.addedBy', 'fullName username');
+
+    res.json({
+      success: true,
+      message: 'Tracking updated successfully',
+      data: updatedTrip
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update tracking',
+      error: error.message
+    });
+  }
+};
+
+// Delete a tracking entry
+exports.deleteTripTracking = async (req, res) => {
+  try {
+    const { id, trackingId } = req.params;
+
+    const trip = await Trip.findById(id);
+    if (!trip) {
+      return res.status(404).json({
+        success: false,
+        message: 'Trip not found'
+      });
+    }
+
+    if (['completed', 'cancelled'].includes(trip.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tracking cannot be deleted from completed or cancelled trips'
+      });
+    }
+
+    const tracking = trip.trackingHistory.id(trackingId);
+    if (!tracking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Tracking entry not found'
+      });
+    }
+
+    const updatedTrip = await Trip.findByIdAndUpdate(
+      id,
+      { $pull: { trackingHistory: { _id: trackingId } } },
+      { new: true }
+    );
+
+    res.json({
+      success: true,
+      message: 'Tracking deleted successfully',
+      data: updatedTrip
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete tracking',
+      error: error.message
+    });
+  }
+};
+
 
 // Update actual POD amount
 exports.updateActualPodAmt = async (req, res) => {

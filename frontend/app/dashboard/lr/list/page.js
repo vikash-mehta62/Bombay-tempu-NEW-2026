@@ -11,6 +11,11 @@ export default function LRListPage() {
   const [loading, setLoading] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
+  const authHeaders = () => ({
+    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+    'X-Company': localStorage.getItem('selectedCompany') || 'buts'
+  });
+
   useEffect(() => {
     loadLRs();
   }, []);
@@ -18,11 +23,8 @@ export default function LRListPage() {
   const loadLRs = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/lrs`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: authHeaders()
       });
 
       if (response.ok) {
@@ -41,12 +43,9 @@ export default function LRListPage() {
 
   const deleteLR = async (id) => {
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/lrs/${id}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: authHeaders()
       });
 
       if (response.ok) {

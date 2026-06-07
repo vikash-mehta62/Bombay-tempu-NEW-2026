@@ -6,6 +6,7 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const fileUpload = require('express-fileupload');
 const connectDB = require('./config/database');
+const { companyMiddleware } = require('./utils/companyContext');
 
 // Load environment variables
 dotenv.config();
@@ -14,6 +15,8 @@ dotenv.config();
 connectDB();
 
 const app = express();
+
+app.set('etag', false);
 
 // Security middleware
 app.use(helmet());
@@ -34,6 +37,14 @@ app.use(cors({
 // Body parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(companyMiddleware);
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  res.set('Vary', 'X-Company');
+  next();
+});
 
 // File upload middleware - DISABLED: Using multer in individual routes instead
 // app.use(fileUpload({
@@ -67,6 +78,7 @@ app.use('/api/client-payments', require('./routes/clientPayments'));
 app.use('/api/client-expenses', require('./routes/clientExpenses'));
 app.use('/api/collection-memos', require('./routes/collectionMemos'));
 app.use('/api/balance-memos', require('./routes/balanceMemos'));
+app.use('/api/bills', require('./routes/bills'));
 app.use('/api/client-pods', require('./routes/clientPODRoutes'));
 app.use('/api/adjustment-payments', require('./routes/adjustmentPayments'));
 app.use('/api/driver-calculations', require('./routes/driverCalculations'));

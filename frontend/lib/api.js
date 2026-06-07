@@ -14,9 +14,26 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
+    const selectedCompany = localStorage.getItem('selectedCompany') || 'buts';
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    config.headers['X-Company'] = selectedCompany;
+    config.headers['Cache-Control'] = 'no-cache';
+    config.headers.Pragma = 'no-cache';
+
+    if (
+      ['post'].includes(config.method?.toLowerCase()) &&
+      config.data &&
+      typeof config.data === 'object' &&
+      !(typeof FormData !== 'undefined' && config.data instanceof FormData)
+    ) {
+      config.data = {
+        ...config.data,
+        forCompany: selectedCompany
+      };
+    }
+
     return config;
   },
   (error) => {
@@ -127,6 +144,10 @@ export const tripAPI = {
   updateActualPod: (id, actualPodAmt, paymentType, notes) => 
     api.patch(`/trips/${id}/actual-pod`, { actualPodAmt, paymentType, notes }),
   getStats: () => api.get('/trips/stats'),
+  getTrackingTrips: () => api.get('/trips/tracking'),
+  addTracking: (id, data) => api.post(`/trips/${id}/tracking`, data),
+  updateTracking: (id, trackingId, data) => api.put(`/trips/${id}/tracking/${trackingId}`, data),
+  deleteTracking: (id, trackingId) => api.delete(`/trips/${id}/tracking/${trackingId}`),
 };
 
 // City API
@@ -211,6 +232,15 @@ export const balanceMemoAPI = {
   getByTrip: (tripId) => api.get(`/balance-memos/trip/${tripId}`),
   getById: (id) => api.get(`/balance-memos/${id}`),
   delete: (id) => api.delete(`/balance-memos/${id}`),
+};
+
+// Bill API
+export const billAPI = {
+  getAll: (params) => api.get('/bills', { params }),
+  save: (data) => api.post('/bills', data),
+  getByTrip: (tripId) => api.get(`/bills/trip/${tripId}`),
+  getByTripAndClient: (tripId, clientId) => api.get(`/bills/trip/${tripId}/client/${clientId}`),
+  delete: (id) => api.delete(`/bills/${id}`),
 };
 
 

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const companyPlugin = require('../utils/companyPlugin');
 
 const adjustmentPaymentSchema = new mongoose.Schema({
   tripId: {
@@ -40,5 +41,6 @@ const adjustmentPaymentSchema = new mongoose.Schema({
 // Index for faster queries
 adjustmentPaymentSchema.index({ tripId: 1, clientId: 1 });
 adjustmentPaymentSchema.index({ clientId: 1 });
+adjustmentPaymentSchema.plugin(companyPlugin);
 
 module.exports = mongoose.model('AdjustmentPayment', adjustmentPaymentSchema);

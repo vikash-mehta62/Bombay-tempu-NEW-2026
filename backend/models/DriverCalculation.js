@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const companyPlugin = require('../utils/companyPlugin');
 
 const driverCalculationSchema = new mongoose.Schema({
   driverId: {
@@ -77,5 +78,6 @@ const driverCalculationSchema = new mongoose.Schema({
 // Index for faster queries
 driverCalculationSchema.index({ driverId: 1 });
 driverCalculationSchema.index({ createdAt: -1 });
+driverCalculationSchema.plugin(companyPlugin);
 
 module.exports = mongoose.model('DriverCalculation', driverCalculationSchema);

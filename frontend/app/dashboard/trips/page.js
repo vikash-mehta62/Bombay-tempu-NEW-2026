@@ -37,6 +37,11 @@ export default function TripsPage() {
   const [tripAdvances, setTripAdvances] = useState({});
   const [tripExpenses, setTripExpenses] = useState({});
 
+  const authHeaders = () => ({
+    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+    'X-Company': localStorage.getItem('selectedCompany') || 'buts'
+  });
+
   useEffect(() => {
     loadTrips();
     loadOverallStats();
@@ -85,7 +90,7 @@ export default function TripsPage() {
           const advancesRes = await fetch(
             `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/trip-advances/trip/${trip._id}`,
             {
-              headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+              headers: authHeaders()
             }
           );
           const advancesJson = await advancesRes.json();
@@ -96,7 +101,7 @@ export default function TripsPage() {
           const expensesRes = await fetch(
             `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/trip-expenses/trip/${trip._id}`,
             {
-              headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+              headers: authHeaders()
             }
           );
           const expensesJson = await expensesRes.json();
@@ -232,10 +237,10 @@ export default function TripsPage() {
             // Fetch client payments and expenses
             const [paymentsRes, expensesRes] = await Promise.all([
               fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/client-payments/trip/${trip._id}/client/${client.clientId?._id}`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                headers: authHeaders()
               }),
               fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/client-expenses/trip/${trip._id}/client/${client.clientId?._id}`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                headers: authHeaders()
               })
             ]);
             
@@ -356,10 +361,10 @@ export default function TripsPage() {
           // Fetch trip advances and expenses
           const [advancesRes, expensesRes] = await Promise.all([
             fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/trip-advances/trip/${trip._id}`, {
-              headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+              headers: authHeaders()
             }),
             fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/trip-expenses/trip/${trip._id}`, {
-              headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+              headers: authHeaders()
             })
           ]);
           

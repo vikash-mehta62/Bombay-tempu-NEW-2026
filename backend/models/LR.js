@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const companyPlugin = require('../utils/companyPlugin');
 
 const lrSchema = new mongoose.Schema({
   // Company Info
@@ -30,7 +31,7 @@ const lrSchema = new mongoose.Schema({
   consigneeCode: { type: String },
   
   // Consignment Details
-  consignmentNo: { type: String, required: true, unique: true },
+  consignmentNo: { type: String, required: true },
   customerName: { type: String },
   from: { type: String },
   to: { type: String },
@@ -103,5 +104,8 @@ const lrSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+lrSchema.index({ consignmentNo: 1, forCompany: 1 }, { unique: true });
+lrSchema.plugin(companyPlugin);
 
 module.exports = mongoose.model('LR', lrSchema);

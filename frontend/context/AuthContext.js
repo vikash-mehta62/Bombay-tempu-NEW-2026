@@ -6,14 +6,32 @@ import { useRouter } from 'next/navigation';
 
 const AuthContext = createContext({});
 
+export const COMPANIES = [
+  { value: 'buts', label: 'BUTS' },
+  { value: 'mk_logistics', label: 'MK LOGISTICS' },
+];
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [currentCompany, setCurrentCompanyState] = useState('buts');
   const router = useRouter();
 
   useEffect(() => {
+    const savedCompany = localStorage.getItem('selectedCompany') || 'buts';
+    setCurrentCompanyState(savedCompany);
     checkAuth();
   }, []);
+
+  const setCurrentCompany = (company, options = { reload: true }) => {
+    const nextCompany = COMPANIES.some((item) => item.value === company) ? company : 'buts';
+    localStorage.setItem('selectedCompany', nextCompany);
+    setCurrentCompanyState(nextCompany);
+
+    if (options.reload && typeof window !== 'undefined') {
+      window.location.reload();
+    }
+  };
 
   const checkAuth = async () => {
     try {
@@ -99,6 +117,9 @@ export function AuthProvider({ children }) {
   const value = {
     user,
     loading,
+    currentCompany,
+    companies: COMPANIES,
+    setCurrentCompany,
     login,
     loginWithPhone,
     logout,

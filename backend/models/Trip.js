@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Counter = require('./Counter');
+const companyPlugin = require('../utils/companyPlugin');
 
 const tripClientSchema = new mongoose.Schema({
   clientId: {
@@ -163,6 +164,40 @@ const tripSchema = new mongoose.Schema({
   // Timestamps
   startTime: Date,
   endTime: Date,
+
+  trackingHistory: [{
+    trackingDate: {
+      type: Date,
+      required: true
+    },
+    location: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    statusNote: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    latitude: {
+      type: Number,
+      default: null
+    },
+    longitude: {
+      type: Number,
+      default: null
+    },
+    addedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    addedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   
   isActive: {
     type: Boolean,
@@ -226,11 +261,12 @@ tripSchema.pre('save', async function(next) {
 });
 
 // Indexes
-tripSchema.index({ tripNumber: 1 });
+tripSchema.index({ tripNumber: 1, forCompany: 1 });
 tripSchema.index({ vehicleId: 1 });
 tripSchema.index({ driverId: 1 });
 tripSchema.index({ status: 1 });
 tripSchema.index({ loadDate: -1 });
 tripSchema.index({ isActive: 1 });
+tripSchema.plugin(companyPlugin);
 
 module.exports = mongoose.model('Trip', tripSchema);

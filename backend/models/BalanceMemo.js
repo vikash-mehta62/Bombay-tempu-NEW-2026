@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const companyPlugin = require('../utils/companyPlugin');
 
 const balanceMemoSchema = new mongoose.Schema({
   tripId: {
@@ -75,5 +76,6 @@ const balanceMemoSchema = new mongoose.Schema({
 // Indexes
 balanceMemoSchema.index({ tripId: 1 });
 balanceMemoSchema.index({ clientId: 1 });
+balanceMemoSchema.plugin(companyPlugin);
 
 module.exports = mongoose.model('BalanceMemo', balanceMemoSchema);

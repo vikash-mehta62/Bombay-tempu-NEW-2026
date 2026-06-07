@@ -10,10 +10,12 @@ import {
   UserCircle,
   MapPin,
   Receipt,
+  FileSpreadsheet,
   FileText,
   CreditCard,
   BarChart3,
   Activity,
+  LocateFixed,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -57,6 +59,11 @@ const menuItems = [
     icon: MapPin,
   },
   {
+    title: 'Tracking',
+    href: '/dashboard/tracking',
+    icon: LocateFixed,
+  },
+  {
     title: 'Expenses',
     href: '/dashboard/expenses',
     icon: Receipt,
@@ -65,6 +72,11 @@ const menuItems = [
     title: 'Invoices',
     href: '/dashboard/invoices',
     icon: FileText,
+  },
+  {
+    title: 'Bills',
+    href: '/dashboard/bills',
+    icon: FileSpreadsheet,
   },
   {
     title: 'LR Download',

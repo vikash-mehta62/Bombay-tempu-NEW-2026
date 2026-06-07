@@ -110,15 +110,18 @@ export default function LRPage() {
     billDocument: null
   });
 
+  const authHeaders = (extraHeaders = {}) => ({
+    ...extraHeaders,
+    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+    'X-Company': localStorage.getItem('selectedCompany') || 'buts'
+  });
+
   // Load clients list on mount and generate consignment number if new
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const token = localStorage.getItem('token');
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clients/search-dropdown`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          headers: authHeaders()
         });
         if (response.ok) {
           const data = await response.json();
@@ -131,11 +134,8 @@ export default function LRPage() {
     
     const generateNextConsignmentNo = async () => {
       try {
-        const token = localStorage.getItem('token');
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/lrs`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          headers: authHeaders()
         });
         if (response.ok) {
           const lrs = await response.json();
@@ -210,11 +210,8 @@ export default function LRPage() {
   const loadLRData = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/lrs/${lrId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: authHeaders()
       });
 
       if (response.ok) {
@@ -250,15 +247,12 @@ export default function LRPage() {
       if (type === 'invoice') setUploadingInvoice(true);
       else setUploadingBill(true);
 
-      const token = localStorage.getItem('token');
       const formDataObj = new FormData();
       formDataObj.append('document', file);
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/lrs/upload-document`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
+        headers: authHeaders(),
         body: formDataObj
       });
 
@@ -290,13 +284,9 @@ export default function LRPage() {
       if (type === 'invoice') setUploadingInvoice(true);
       else setUploadingBill(true);
 
-      const token = localStorage.getItem('token');
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/lrs/delete-document`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           publicId: documentObj.publicId,
           lrId: lrId || null,
@@ -328,11 +318,8 @@ export default function LRPage() {
     setClientSearchQuery(queryValue);
     try {
       setSearchingClients(true);
-      const token = localStorage.getItem('token');
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clients/search-dropdown?search=${encodeURIComponent(queryValue)}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: authHeaders()
       });
       if (response.ok) {
         const data = await response.json();
@@ -352,8 +339,6 @@ export default function LRPage() {
     }
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      
       const url = lrId 
         ? `${process.env.NEXT_PUBLIC_API_URL}/lrs/${lrId}`
         : `${process.env.NEXT_PUBLIC_API_URL}/lrs`;
@@ -362,10 +347,7 @@ export default function LRPage() {
 
       const response = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(formData)
       });
 

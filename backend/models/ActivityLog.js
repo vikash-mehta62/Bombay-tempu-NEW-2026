@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const companyPlugin = require('../utils/companyPlugin');
 
 const activityLogSchema = new mongoose.Schema({
   userId: {
@@ -87,5 +88,6 @@ activityLogSchema.index({ userId: 1, timestamp: -1 });
 activityLogSchema.index({ module: 1, timestamp: -1 });
 activityLogSchema.index({ actionType: 1, timestamp: -1 });
 activityLogSchema.index({ timestamp: -1 });
+activityLogSchema.plugin(companyPlugin);
 
 module.exports = mongoose.model('ActivityLog', activityLogSchema);

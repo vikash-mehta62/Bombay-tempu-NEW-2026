@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const companyPlugin = require('../utils/companyPlugin');
 
 const vehicleSchema = new mongoose.Schema({
   // Basic Details
@@ -219,10 +220,11 @@ vehicleSchema.pre('save', function(next) {
 });
 
 // Indexes
-vehicleSchema.index({ vehicleNumber: 1 });
+vehicleSchema.index({ vehicleNumber: 1, forCompany: 1 }, { unique: true });
 vehicleSchema.index({ currentStatus: 1 });
 vehicleSchema.index({ ownershipType: 1 });
 vehicleSchema.index({ fleetOwnerId: 1 });
 vehicleSchema.index({ isActive: 1 });
+vehicleSchema.plugin(companyPlugin);
 
 module.exports = mongoose.model('Vehicle', vehicleSchema);

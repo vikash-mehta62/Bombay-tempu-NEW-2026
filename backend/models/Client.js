@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const companyPlugin = require('../utils/companyPlugin');
 
 const clientSchema = new mongoose.Schema({
   fullName: {
@@ -14,7 +15,6 @@ const clientSchema = new mongoose.Schema({
   contact: {
     type: String,
     required: [true, 'Contact number is required'],
-    unique: true,
     trim: true
   },
   email: {
@@ -98,10 +98,11 @@ clientSchema.methods.comparePassword = async function(candidatePassword) {
 };
 
 // Indexes
-clientSchema.index({ contact: 1 });
-clientSchema.index({ email: 1 });
-clientSchema.index({ gstNumber: 1 });
+clientSchema.index({ contact: 1, forCompany: 1 }, { unique: true });
+clientSchema.index({ email: 1, forCompany: 1 }, { sparse: true });
+clientSchema.index({ gstNumber: 1, forCompany: 1 }, { sparse: true });
 clientSchema.index({ status: 1 });
 clientSchema.index({ isActive: 1 });
+clientSchema.plugin(companyPlugin);
 
 module.exports = mongoose.model('Client', clientSchema);

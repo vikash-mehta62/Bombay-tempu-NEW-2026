@@ -19,8 +19,18 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - API requests must never be cached because data is company-scoped.
 self.addEventListener('fetch', (event) => {
+  const requestUrl = new URL(event.request.url);
+  const isApiRequest =
+    requestUrl.pathname.startsWith('/api') ||
+    requestUrl.origin === 'http://localhost:5000';
+
+  if (event.request.method !== 'GET' || isApiRequest) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
