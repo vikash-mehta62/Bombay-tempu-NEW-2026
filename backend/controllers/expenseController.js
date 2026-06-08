@@ -126,9 +126,18 @@ exports.getExpensesByVehicle = async (req, res) => {
     if (month && year) {
       const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
       const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+      const dateRange = { $gte: startDate, $lte: endDate };
       
-      generalExpenseFilter.date = { $gte: startDate, $lte: endDate };
-      tripFilter.loadDate = { $gte: startDate, $lte: endDate };
+      generalExpenseFilter.date = dateRange;
+      tripFilter.$or = [
+        { tripDateTime: dateRange },
+        {
+          $and: [
+            { $or: [{ tripDateTime: { $exists: false } }, { tripDateTime: null }] },
+            { loadDate: dateRange }
+          ]
+        }
+      ];
     }
 
     // Get general vehicle expenses
@@ -137,7 +146,7 @@ exports.getExpensesByVehicle = async (req, res) => {
     .sort({ date: -1 });
 
     // Get all trips for this vehicle
-    const trips = await Trip.find(tripFilter).select('_id tripNumber loadDate totalClientRevenue clients');
+    const trips = await Trip.find(tripFilter).select('_id tripNumber tripDateTime loadDate totalClientRevenue clients');
 
     // Get trip expenses for all vehicle trips
     const tripIds = trips.map(t => t._id);

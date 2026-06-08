@@ -114,7 +114,7 @@ const menuItems = [
 
 export default function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }) {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, currentCompany } = useAuth();
 
   const handleLinkClick = () => {
     // Close mobile menu when link is clicked
@@ -127,6 +127,12 @@ export default function Sidebar({ isCollapsed, setIsCollapsed, isMobileOpen, set
   const filteredMenuItems = menuItems.filter(item => {
     if (item.adminOnly && user?.role !== 'admin') return false;
     if (item.hideForSubAdmin && user?.role === 'sub_admin') return false;
+    if (
+      currentCompany === 'buts' &&
+      ['Invoices', 'Bills', 'LR Download'].includes(item.title)
+    ) {
+      return false;
+    }
     return true;
   });
 

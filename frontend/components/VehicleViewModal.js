@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import Modal from './Modal';
 import VehicleDocumentUpload from './VehicleDocumentUpload';
 import { Calendar, Truck, FileText, CreditCard, User, AlertTriangle, Bell, DollarSign, TrendingUp, TrendingDown, Download, Loader } from 'lucide-react';
@@ -11,6 +12,7 @@ import 'jspdf-autotable';
 
 // Vehicle Expenses Tab Component
 function VehicleExpensesTab({ vehicle, formatCurrency }) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [trips, setTrips] = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -27,6 +29,15 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
     profit: 0,
     tripCount: 0
   });
+
+  const getTripUrl = (tripId) => {
+    if (user?.role === 'admin' || user?.role === 'sub_admin') {
+      return `/dashboard/trips/${tripId}`;
+    }
+    return `/trip/${tripId}`;
+  };
+
+  const getTripReportDate = (trip) => trip.tripDateTime || trip.loadDate;
 
   const months = [
     { value: 1, label: 'January' },
@@ -107,7 +118,7 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
       // Add income rows
       trips.forEach(trip => {
         rows.push([
-          new Date(trip.loadDate).toLocaleDateString('en-IN'),
+          new Date(getTripReportDate(trip)).toLocaleDateString('en-IN'),
           trip.tripNumber,
           'Income',
           `Trip Revenue (${trip.clients?.length || 0} clients)`,
@@ -200,7 +211,7 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
       const transactions = [];
       trips.forEach(trip => {
         transactions.push([
-          new Date(trip.loadDate).toLocaleDateString('en-IN'),
+          new Date(getTripReportDate(trip)).toLocaleDateString('en-IN'),
           trip.tripNumber,
           'Income',
           `Trip Revenue`,
@@ -446,18 +457,18 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
                     <div className="flex items-center space-x-2">
                       <span className="px-2 py-0.5 bg-green-600 text-white text-xs font-bold rounded">INCOME</span>
                       <a 
-                        href={`/trip/${trip._id}`}
+                        href={getTripUrl(trip._id)}
                         className="text-sm font-medium text-blue-600 hover:text-blue-800 underline cursor-pointer"
                         onClick={(e) => {
                           e.preventDefault();
-                          window.location.href = `/trip/${trip._id}`;
+                          window.location.href = getTripUrl(trip._id);
                         }}
                       >
                         {trip.tripNumber}
                       </a>
                     </div>
                     <p className="text-xs text-gray-600 mt-1">
-                      Trip Revenue • {new Date(trip.loadDate).toLocaleDateString('en-IN')}
+                      Trip Revenue • {new Date(getTripReportDate(trip)).toLocaleDateString('en-IN')}
                     </p>
                   </div>
                   <p className="text-lg font-bold text-green-600">
@@ -480,11 +491,11 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
                         {trip?.tripNumber && trip._id ? (
                           <>
                             <a 
-                              href={`/trip/${trip._id}`}
+                              href={getTripUrl(trip._id)}
                               className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
                               onClick={(e) => {
                                 e.preventDefault();
-                                window.location.href = `/trip/${trip._id}`;
+                                window.location.href = getTripUrl(trip._id);
                               }}
                             >
                               {trip.tripNumber}
@@ -515,11 +526,11 @@ function VehicleExpensesTab({ vehicle, formatCurrency }) {
                       <p className="text-xs text-gray-600 mt-1">
                         {trip?.tripNumber && trip._id ? (
                           <a 
-                            href={`/trip/${trip._id}`}
+                            href={getTripUrl(trip._id)}
                             className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
                             onClick={(e) => {
                               e.preventDefault();
-                              window.location.href = `/trip/${trip._id}`;
+                              window.location.href = getTripUrl(trip._id);
                             }}
                           >
                             {trip.tripNumber}
