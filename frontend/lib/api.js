@@ -243,6 +243,12 @@ export const billAPI = {
   delete: (id) => api.delete(`/bills/${id}`),
 };
 
+// LR API
+export const lrAPI = {
+  getAll: () => api.get('/lrs'),
+  getById: (id) => api.get(`/lrs/${id}`),
+};
+
 
 
 

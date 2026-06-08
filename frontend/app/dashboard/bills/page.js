@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, FileSpreadsheet, Loader2, RefreshCw, Save, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
-import { billAPI, clientAPI, tripAPI } from '@/lib/api';
+import { billAPI, lrAPI } from '@/lib/api';
 import TruckLoader from '@/components/TruckLoader';
 
 const company = {
@@ -108,43 +108,110 @@ const formatLrDate = (value) => {
   }).replace(/ /g, '-');
 };
 
+const toDateInput = (value) => {
+  if (!value) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+
+  const ddmmyyyy = String(value).match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/);
+  if (ddmmyyyy) {
+    const [, day, month, rawYear] = ddmmyyyy;
+    const year = rawYear.length === 2 ? `20${rawYear}` : rawYear;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10);
+};
+
+const firstFilled = (...values) => values.find((value) => value !== undefined && value !== null && value !== '') || '';
+
 export default function BillsPage() {
-  const [trips, setTrips] = useState([]);
-  const [selectedTripId, setSelectedTripId] = useState('');
+  const lrDropdownRef = useRef(null);
+  const [lrs, setLrs] = useState([]);
+  const [selectedLrId, setSelectedLrId] = useState('');
   const [selectedClientId, setSelectedClientId] = useState('');
   const [selectedClientDetails, setSelectedClientDetails] = useState(null);
   const [currentBillId, setCurrentBillId] = useState(null);
   const [existingBills, setExistingBills] = useState([]);
   const [search, setSearch] = useState('');
+  const [isLrDropdownOpen, setIsLrDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
-    loadTrips();
+    loadLRs();
   }, []);
 
-  const loadTrips = async () => {
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (lrDropdownRef.current && !lrDropdownRef.current.contains(event.target)) {
+        setIsLrDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  const loadLRs = async () => {
     try {
       setLoading(true);
-      const response = await tripAPI.getAll({ limit: 100000, search: search || undefined });
-      setTrips(response.data.data || []);
+      const response = await lrAPI.getAll();
+      const data = Array.isArray(response.data) ? response.data : response.data.data || [];
+      setLrs(data);
     } catch (error) {
-      toast.error('Trips load nahi ho paye');
+      toast.error('LR load nahi ho paye');
       console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
-  const selectedTrip = useMemo(() => {
-    return trips.find((trip) => trip._id === selectedTripId) || null;
-  }, [trips, selectedTripId]);
+  const selectedLr = useMemo(() => {
+    return lrs.find((lr) => lr._id === selectedLrId) || null;
+  }, [lrs, selectedLrId]);
 
+  const lrOptionLabel = (lr) => {
+    if (!lr) return '';
+    return `${lr.consignmentNo} - ${lr.customerName || lr.consignorName || lr.consigneeName || 'No Customer'} - ${lr.from || 'From'} to ${lr.to || 'To'}`;
+  };
+
+  const filteredLrs = useMemo(() => {
+    const searchLower = search.trim().toLowerCase();
+    if (!searchLower) return lrs;
+
+    return lrs.filter((lr) => [
+      lr.consignmentNo,
+      lr.customerName,
+      lr.consignorName,
+      lr.consigneeName,
+      lr.from,
+      lr.to,
+      lr.invoices?.[0]?.invoiceNo,
+    ].some((value) => String(value || '').toLowerCase().includes(searchLower)));
+  }, [lrs, search]);
+
+  const selectedTrip = null;
   const selectedTripClient = useMemo(() => {
-    return selectedTrip?.clients?.find((item) => item.clientId?._id === selectedClientId) || null;
-  }, [selectedTrip, selectedClientId]);
+    if (!selectedLr) return null;
+
+    return {
+      clientId: {
+        _id: selectedLr._id,
+        fullName: selectedLr.customerName || selectedLr.consignorName || selectedLr.consigneeName || selectedLr.consignmentNo,
+        companyName: selectedLr.customerName || '',
+        address: selectedLr.consignorAddress || selectedLr.consigneeAddress || '',
+        billingAddress: selectedLr.consignorAddress || selectedLr.consigneeAddress || '',
+        gstNumber: selectedLr.consignorGst || selectedLr.consigneeGst || '',
+      },
+      originCity: { cityName: selectedLr.from || '', state: '' },
+      destinationCity: { cityName: selectedLr.to || '', state: form.stateOfSupply || '' },
+      loadDate: form.lrDate || selectedLr.createdAt,
+      unloadingDate: form.unloadingDate,
+    };
+  }, [selectedLr, form.lrDate, form.unloadingDate, form.stateOfSupply]);
 
   const totals = useMemo(() => {
     const taxable = num(form.freightAmount) + num(form.loadingCharges) + num(form.unloadingCharges) + num(form.otherCharges);
@@ -156,71 +223,71 @@ export default function BillsPage() {
     return { taxable, cgst, sgst, igst, grand, balance };
   }, [form]);
 
-  const handleTripChange = (tripId) => {
-    const trip = trips.find((item) => item._id === tripId);
-    const firstClient = trip?.clients?.[0];
-    setSelectedTripId(tripId);
-    setSelectedClientId(firstClient?.clientId?._id || '');
+  const handleLrChange = (lrId) => {
+    const lr = lrs.find((item) => item._id === lrId);
+    setSelectedLrId(lrId);
+    setSearch(lr ? lrOptionLabel(lr) : '');
+    setIsLrDropdownOpen(false);
+    setSelectedClientId(lr?._id || '');
     setSelectedClientDetails(null);
     setCurrentBillId(null);
     setExistingBills([]);
-    fillFromTrip(trip, firstClient);
-    if (tripId) loadBillsByTrip(tripId);
+    fillFromLR(lr);
   };
 
   const handleClientChange = (clientId) => {
-    const tripClient = selectedTrip?.clients?.find((item) => item.clientId?._id === clientId);
     setSelectedClientId(clientId);
     setSelectedClientDetails(null);
     setCurrentBillId(null);
-    fillFromTrip(selectedTrip, tripClient);
   };
 
-  const fillFromTrip = async (trip, tripClient) => {
-    if (!trip || !tripClient) return;
+  const fillFromLR = (lr) => {
+    if (!lr) return;
+
+    const firstInvoice = lr.invoices?.find((invoice) => invoice?.invoiceNo || invoice?.date || invoice?.ewayBillNo) || {};
+    const firstItem = lr.items?.[0] || {};
+    const lrDate = toDateInput(firstInvoice.date || lr.createdAt);
+    const customer = {
+      _id: lr._id,
+      fullName: lr.customerName || lr.consignorName || lr.consigneeName || lr.consignmentNo,
+      companyName: lr.customerName || '',
+      address: lr.consignorAddress || lr.consigneeAddress || '',
+      billingAddress: lr.consignorAddress || lr.consigneeAddress || '',
+      gstNumber: lr.consignorGst || lr.consigneeGst || '',
+    };
 
     setForm((prev) => ({
       ...emptyForm,
       billDate: prev.billDate || emptyForm.billDate,
-      billNo: `MKL/${new Date().getFullYear()}/${trip.tripNumber || ''}`.replace(/\/$/, ''),
-      lrDate: tripClient.loadDate ? new Date(tripClient.loadDate).toISOString().slice(0, 10) : '',
-      unloadingDate: tripClient.unloadingDate ? new Date(tripClient.unloadingDate).toISOString().slice(0, 10) : '',
-      freightAmount: tripClient.clientRate || '',
-      rate: tripClient.clientRate || '',
-      customerGstin: tripClient.clientId?.gstNumber || '',
-      stateOfSupply: tripClient.destinationCity?.state || '',
-      invoiceNo: trip.tripNumber || '',
-      consignor: clientName(tripClient.clientId),
-      remarks: trip.additionalInstructions || '',
+      billNo: `MKL/${new Date().getFullYear()}/${lr.consignmentNo || ''}`.replace(/\/$/, ''),
+      lrNo: lr.consignmentNo || lr.lrNo || '',
+      lrDate,
+      freightAmount: lr.freight || '',
+      rate: firstFilled(firstItem.rate, lr.freight),
+      loadingCharges: lr.hamali || '',
+      unloadingCharges: lr.delCharges || '',
+      otherCharges: lr.builtyCharges || '',
+      cgstPercent: lr.cgstPercent || '',
+      sgstPercent: lr.sgstPercent || '',
+      igstPercent: lr.igstPercent || '',
+      customerGstin: customer.gstNumber,
+      invoiceNo: firstInvoice.invoiceNo || '',
+      ewayBillNo: firstInvoice.ewayBillNo || '',
+      packageQty: firstFilled(lr.noOfPackages, firstInvoice.noOfPcs),
+      weight: firstFilled(firstItem.chargedWeight, firstItem.actualWeight),
+      consignor: lr.consignorName || '',
+      consignee: lr.consigneeName || '',
+      remarks: lr.specialInstruction || '',
     }));
 
-    const clientId = tripClient.clientId?._id;
-    if (!clientId) return;
-
-    try {
-      const response = await clientAPI.getById(clientId);
-      const client = response.data.data || null;
-      setSelectedClientDetails(client);
-      setForm((prev) => ({
-        ...prev,
-        customerGstin: prev.customerGstin || client?.gstNumber || '',
-      }));
-    } catch (error) {
-      console.error(error);
-    }
+    setSelectedClientDetails(customer);
   };
 
   useEffect(() => {
-    if (selectedTrip && selectedTripClient && !selectedClientDetails) {
-      fillFromTrip(selectedTrip, selectedTripClient);
+    if (selectedLr && !selectedClientDetails) {
+      fillFromLR(selectedLr);
     }
-  }, [selectedTrip, selectedTripClient]);
-
-  useEffect(() => {
-    if (selectedTripId && selectedClientId) {
-      loadSavedBill(selectedTripId, selectedClientId);
-    }
-  }, [selectedTripId, selectedClientId]);
+  }, [selectedLr]);
 
   const updateField = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -291,7 +358,7 @@ export default function BillsPage() {
   };
 
   const buildPayload = () => ({
-    tripId: selectedTripId,
+    tripId: selectedTrip?._id,
     clientId: selectedClientId,
     ...form,
     taxableAmount: totals.taxable,
@@ -303,8 +370,8 @@ export default function BillsPage() {
   });
 
   const saveBill = async ({ silent = false } = {}) => {
-    if (!selectedTrip || !selectedTripClient) {
-      toast.error('Pehle trip aur client select karo');
+    if (!selectedLr) {
+      toast.error('Pehle LR select karo');
       return null;
     }
 
@@ -313,12 +380,28 @@ export default function BillsPage() {
       return null;
     }
 
+    if (!selectedTrip) {
+      const localBill = {
+        _id: currentBillId,
+        ...form,
+        clientId: selectedClientDetails || selectedTripClient?.clientId,
+        taxableAmount: totals.taxable,
+        cgstAmount: totals.cgst,
+        sgstAmount: totals.sgst,
+        igstAmount: totals.igst,
+        grandTotal: totals.grand,
+        balancePayable: totals.balance,
+      };
+      if (!silent) toast.success('Bill details ready');
+      return localBill;
+    }
+
     try {
       setSaving(true);
       const response = await billAPI.save(buildPayload());
       const savedBill = response.data.data;
       applySavedBill(savedBill);
-      if (selectedTripId) loadBillsByTrip(selectedTripId);
+      if (selectedTrip?._id) loadBillsByTrip(selectedTrip._id);
       if (!silent) toast.success('Bill database me save ho gaya');
       return savedBill;
     } catch (error) {
@@ -330,30 +413,34 @@ export default function BillsPage() {
     }
   };
 
-  const buildInvoiceRow = (client = selectedClientDetails || selectedTripClient?.clientId) => ({
-    lrNo: form.lrNo || '',
-    lrDate: formatLrDate(form.lrDate || selectedTripClient?.loadDate || selectedTrip?.loadDate),
-    vehicleNo: selectedTrip?.vehicleId?.vehicleNumber || '',
-    vehicleType: form.vehicleType || 'FTL',
-    from: plainCityName(selectedTripClient?.originCity),
-    to: plainCityName(selectedTripClient?.destinationCity),
-    unloadingDate: formatLrDate(form.unloadingDate),
-    vendor: form.vendor || '',
-    invoiceNo: form.invoiceNo || selectedTrip?.tripNumber || '',
-    packageQty: num(form.packageQty),
-    weight: num(form.weight),
-    rate: num(form.rate || form.freightAmount),
-    freight: num(form.freightAmount),
-    loading: num(form.loadingCharges),
-    twoPoint: num(form.unloadingCharges),
-    lrCharges: num(form.otherCharges),
-    total: totals.taxable,
-    client,
-  });
+  const buildInvoiceRow = (client = selectedClientDetails || selectedTripClient?.clientId) => {
+    const firstInvoice = selectedLr?.invoices?.[0] || {};
+
+    return {
+      lrNo: form.lrNo || selectedLr?.consignmentNo || '',
+      lrDate: formatLrDate(form.lrDate || selectedTripClient?.loadDate || selectedLr?.createdAt),
+      vehicleNo: form.vehicleNo || '',
+      vehicleType: form.vehicleType || 'FTL',
+      from: selectedLr?.from || plainCityName(selectedTripClient?.originCity),
+      to: selectedLr?.to || plainCityName(selectedTripClient?.destinationCity),
+      unloadingDate: formatLrDate(form.unloadingDate),
+      vendor: form.vendor || '',
+      invoiceNo: form.invoiceNo || firstInvoice.invoiceNo || '',
+      packageQty: num(form.packageQty),
+      weight: num(form.weight),
+      rate: num(form.rate || form.freightAmount),
+      freight: num(form.freightAmount),
+      loading: num(form.loadingCharges),
+      twoPoint: num(form.unloadingCharges),
+      lrCharges: num(form.otherCharges),
+      total: totals.taxable,
+      client,
+    };
+  };
 
   const generateBill = async () => {
-    if (!selectedTrip || !selectedTripClient) {
-      toast.error('Pehle trip aur client select karo');
+    if (!selectedLr) {
+      toast.error('Pehle LR select karo');
       return;
     }
 
@@ -362,7 +449,7 @@ export default function BillsPage() {
       const savedBill = await saveBill({ silent: true });
       if (!savedBill) return;
 
-      const client = selectedClientDetails || selectedTripClient.clientId;
+      const client = selectedClientDetails || selectedTripClient?.clientId;
       const doc = new jsPDF('l', 'mm', 'a4');
       const pageWidth = doc.internal.pageSize.getWidth();
       const left = 5;
@@ -397,7 +484,7 @@ export default function BillsPage() {
       text('To,', left + 1, 38, { bold: true, size: 9 });
       text(clientName(client), left + 11, 38, { bold: true, size: 9 });
       text(`${clientName(client)} ${client?.billingAddress || client?.address || ''}`, left + 1, 44, { italic: true, size: 8, maxWidth: 150 });
-      text(`State Name : ${form.stateOfSupply || selectedTripClient.destinationCity?.state || ''}`, left + 1, 58, { bold: true, italic: true, size: 8 });
+      text(`State Name : ${form.stateOfSupply || selectedTripClient?.destinationCity?.state || ''}`, left + 1, 58, { bold: true, italic: true, size: 8 });
       text(`GSTIN : ${customerGstin}`, left + 1, 64, { bold: true, italic: true, size: 8 });
 
       const detailX = 226;
@@ -417,7 +504,7 @@ export default function BillsPage() {
       text('State of Supply', detailX, 74, { bold: true, size: 8 });
       doc.setFillColor(255, 255, 0);
       doc.rect(256, 70, 36, 6, 'F');
-      text(form.stateOfSupply || selectedTripClient.destinationCity?.state || '', 274, 74, { italic: true, size: 8, align: 'center' });
+      text(form.stateOfSupply || selectedTripClient?.destinationCity?.state || '', 274, 74, { italic: true, size: 8, align: 'center' });
       text('State Code', detailX, 80, { bold: true, size: 8 });
       text(form.stateCode || '', 274, 80, { italic: true, size: 8, align: 'center' });
 
@@ -485,7 +572,7 @@ export default function BillsPage() {
       doc.line(208, termsY + 1, 245, termsY + 1);
 
       const clean = (value) => String(value || '').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '').slice(0, 35);
-      doc.save(`Bill_${clean(form.billNo || selectedTrip.tripNumber)}_${clean(clientName(client))}.pdf`);
+      doc.save(`Bill_${clean(form.billNo || selectedLr?.consignmentNo)}_${clean(clientName(client))}.pdf`);
       toast.success('Bill save aur PDF download ho gaya');
     } catch (error) {
       console.error(error);
@@ -514,7 +601,7 @@ export default function BillsPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Bills</h1>
-          <p className="text-sm text-gray-600">Trip select karke us trip ke client ke liye MK Logistics bill download karo.</p>
+          <p className="text-sm text-gray-600">LR select karke us LR ki details se MK Logistics bill download karo.</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <button onClick={() => saveBill()} disabled={saving || generating} className="btn btn-secondary flex items-center justify-center gap-2">
@@ -530,51 +617,48 @@ export default function BillsPage() {
 
       <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
         <div className="card space-y-5">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">LR</label>
+            <div ref={lrDropdownRef} className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <input
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && loadTrips()}
-                placeholder="Trip/client/vehicle search"
-                className="input w-full pl-9"
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setSelectedLrId('');
+                  setIsLrDropdownOpen(true);
+                }}
+                onFocus={() => setIsLrDropdownOpen(true)}
+                placeholder="LR/customer/from/to search"
+                className="input w-full pl-9 pr-11"
               />
+              <button onClick={loadLRs} className="absolute right-1 top-1/2 -translate-y-1/2 rounded-md bg-gray-100 p-2 text-gray-600 hover:bg-gray-200" title="Refresh LRs" type="button">
+                <RefreshCw className="h-4 w-4" />
+              </button>
+              {isLrDropdownOpen && (
+                <div className="absolute z-30 mt-1 max-h-64 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg">
+                  {filteredLrs.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-gray-500">No LR found</div>
+                  ) : (
+                    filteredLrs.map((lr) => (
+                      <button
+                        key={lr._id}
+                        type="button"
+                        onClick={() => handleLrChange(lr._id)}
+                        className={`block w-full px-3 py-2 text-left text-sm hover:bg-blue-50 ${selectedLrId === lr._id ? 'bg-blue-100 text-blue-800' : 'text-gray-800'}`}
+                      >
+                        {lrOptionLabel(lr)}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
-            <button onClick={loadTrips} className="btn btn-secondary px-3" title="Refresh trips">
-              <RefreshCw className="h-4 w-4" />
-            </button>
           </div>
 
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Trip</label>
-            <select value={selectedTripId} onChange={(e) => handleTripChange(e.target.value)} className="input w-full">
-              <option value="">Select trip</option>
-              {trips.map((trip) => (
-                <option key={trip._id} value={trip._id}>
-                  {trip.tripNumber} - {trip.vehicleId?.vehicleNumber || 'No Vehicle'} - {formatDate(trip.loadDate)}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Client in selected trip</label>
-            <select value={selectedClientId} onChange={(e) => handleClientChange(e.target.value)} disabled={!selectedTrip} className="input w-full">
-              <option value="">Select client</option>
-              {selectedTrip?.clients?.map((client) => (
-                <option key={client.clientId?._id} value={client.clientId?._id}>
-                  {clientName(client.clientId)} - {cityName(client.originCity)} to {cityName(client.destinationCity)}
-                </option>
-              ))}
-            </select>
-            {selectedTrip?.clients?.length > 1 && (
-              <p className="mt-1 text-xs text-gray-500">Is trip me {selectedTrip.clients.length} clients hain. Bill selected client ke naam se save hoga.</p>
-            )}
-            {currentBillId && (
-              <p className="mt-1 text-xs font-medium text-green-700">Saved bill loaded. Changes save karne par isi bill me update honge.</p>
-            )}
-          </div>
+          {currentBillId && (
+            <p className="text-xs font-medium text-green-700">Saved bill loaded. Changes save karne par isi bill me update honge.</p>
+          )}
 
           {existingBills.length > 0 && (
             <div className="rounded-md border border-gray-200 bg-gray-50 p-3">

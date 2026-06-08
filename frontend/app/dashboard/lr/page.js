@@ -1,9 +1,81 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Download, Plus, Trash2, Save, List, Upload, FileText, Loader2, Eye } from 'lucide-react';
+import { Download, Plus, Trash2, Save, List, Upload, FileText, Loader2, Eye, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter, useSearchParams } from 'next/navigation';
+
+const ClientSearchSelect = ({ label, placeholder, clients, onSelect }) => {
+  const dropdownRef = useRef(null);
+  const [query, setQuery] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const searchLower = query.trim().toLowerCase();
+  const filteredClients = searchLower
+    ? clients.filter((client) => [
+        client.companyName,
+        client.fullName,
+        client.contact,
+        client.gstNumber,
+      ].some((value) => String(value || '').toLowerCase().includes(searchLower)))
+    : clients;
+
+  const getClientLabel = (client) => [client.companyName || client.fullName, client.contact].filter(Boolean).join(' - ');
+
+  const handleSelect = (client) => {
+    setQuery(getClientLabel(client));
+    setIsOpen(false);
+    onSelect(client._id);
+  };
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  return (
+    <div className="mb-2">
+      <label className="mb-1 block text-[11px] font-bold text-blue-700">{label}</label>
+      <div ref={dropdownRef} className="relative">
+        <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+          placeholder={placeholder}
+          className="w-full rounded border bg-blue-50 p-1.5 pl-7 text-xs font-semibold focus:bg-white"
+        />
+        {isOpen && (
+          <div className="absolute z-30 mt-1 max-h-48 w-full overflow-auto rounded border border-gray-200 bg-white shadow-lg">
+            {filteredClients.length === 0 ? (
+              <div className="px-2 py-1.5 text-xs text-gray-500">No client found</div>
+            ) : (
+              filteredClients.map((client) => (
+                <button
+                  key={client._id}
+                  type="button"
+                  onClick={() => handleSelect(client)}
+                  className="block w-full px-2 py-1.5 text-left text-xs text-gray-800 hover:bg-blue-50"
+                >
+                  {getClientLabel(client)}
+                </button>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export default function LRPage() {
   const previewRef = useRef();
@@ -14,8 +86,6 @@ export default function LRPage() {
   const [clients, setClients] = useState([]);
   const [uploadingInvoice, setUploadingInvoice] = useState(false);
   const [uploadingBill, setUploadingBill] = useState(false);
-  const [clientSearchQuery, setClientSearchQuery] = useState('');
-  const [searchingClients, setSearchingClients] = useState(false);
   const [formData, setFormData] = useState({
     companyName: 'MK LOGISTICS',
     officeAddress: 'Corp Office : G Floor Shop No. 13 City Star Mall Parijat Chowk, Hisar, Haryana - 125001',
@@ -314,24 +384,6 @@ export default function LRPage() {
     }
   };
 
-  const handleClientSearch = async (queryValue) => {
-    setClientSearchQuery(queryValue);
-    try {
-      setSearchingClients(true);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clients/search-dropdown?search=${encodeURIComponent(queryValue)}`, {
-        headers: authHeaders()
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setClients(data.data || []);
-      }
-    } catch (error) {
-      console.error('Error searching clients:', error);
-    } finally {
-      setSearchingClients(false);
-    }
-  };
-
   const saveLR = async () => {
     if (!formData.consignmentNo || !formData.consignmentNo.trim()) {
       toast.error('Consignment No is required!');
@@ -597,42 +649,14 @@ window.onload = function() {
         </div>
 
             <div className="space-y-4 pb-20">
-          {/* Client Search Bar */}
-          <div className="bg-white p-3 rounded shadow-sm border border-blue-200">
-            <label className="text-xs font-bold text-blue-700 block mb-1">🔍 SEARCH CLIENT (Consignor/Consignee/Customer)</label>
-            <div className="relative">
-              <input 
-                type="text" 
-                value={clientSearchQuery}
-                onChange={(e) => handleClientSearch(e.target.value)}
-                placeholder="Type client name or company name to search..." 
-                className="w-full p-2 border rounded text-xs bg-blue-50 focus:bg-white transition-colors pr-8 font-semibold"
-              />
-              {searchingClients && (
-                <div className="absolute right-2.5 top-2.5">
-                  <Loader2 className="animate-spin text-blue-500" size={14} />
-                </div>
-              )}
-            </div>
-            <span className="text-[9px] text-gray-400 mt-1 block">Typing will update Consignor, Consignee & Customer dropdowns below.</span>
-          </div>
-
           <div className="bg-white p-3 rounded shadow-sm">
             <h2 className="text-sm font-bold mb-2 border-b">Consignor Details</h2>
-            <div className="mb-2">
-              <select
-                onChange={(e) => handleAutofillConsignor(e.target.value)}
-                className="w-full p-1 border text-xs bg-blue-50 font-semibold rounded"
-                defaultValue=""
-              >
-                <option value="">-- Select Consignor Client to Autofill --</option>
-                {clients.map(c => (
-                  <option key={c._id} value={c._id}>
-                    {c.companyName || c.fullName}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <ClientSearchSelect
+              label="Consignor Client"
+              placeholder="Search and select consignor"
+              clients={clients}
+              onSelect={handleAutofillConsignor}
+            />
             <div className="grid grid-cols-2 gap-2">
               <input type="text" name="consignorName" value={formData.consignorName} onChange={handleChange} className="p-1 border text-sm" placeholder="Consignor Name" />
               <input type="text" name="consignorCode" value={formData.consignorCode} onChange={handleChange} className="p-1 border text-sm" placeholder="Consignor Code" />
@@ -645,20 +669,12 @@ window.onload = function() {
 
           <div className="bg-white p-3 rounded shadow-sm">
             <h2 className="text-sm font-bold mb-2 border-b">Consignee Details</h2>
-            <div className="mb-2">
-              <select
-                onChange={(e) => handleAutofillConsignee(e.target.value)}
-                className="w-full p-1 border text-xs bg-blue-50 font-semibold rounded"
-                defaultValue=""
-              >
-                <option value="">-- Select Consignee Client to Autofill --</option>
-                {clients.map(c => (
-                  <option key={c._id} value={c._id}>
-                    {c.companyName || c.fullName}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <ClientSearchSelect
+              label="Consignee Client"
+              placeholder="Search and select consignee"
+              clients={clients}
+              onSelect={handleAutofillConsignee}
+            />
             <div className="grid grid-cols-2 gap-2">
               <input type="text" name="consigneeName" value={formData.consigneeName} onChange={handleChange} className="p-1 border text-sm" placeholder="Consignee Name" />
               <input type="text" name="consigneeCode" value={formData.consigneeCode} onChange={handleChange} className="p-1 border text-sm" placeholder="Consignee Code" />
@@ -671,25 +687,17 @@ window.onload = function() {
 
           <div className="bg-white p-3 rounded shadow-sm">
             <h2 className="text-sm font-bold mb-2 border-b">Booking Info</h2>
-            <div className="mb-2">
-              <select
-                onChange={(e) => {
-                  const client = clients.find(c => c._id === e.target.value);
-                  if (client) {
-                    setFormData(prev => ({ ...prev, customerName: client.companyName || client.fullName || '' }));
-                  }
-                }}
-                className="w-full p-1 border text-xs bg-blue-50 font-semibold rounded"
-                defaultValue=""
-              >
-                <option value="">-- Autofill Customer Name from Clients --</option>
-                {clients.map(c => (
-                  <option key={c._id} value={c._id}>
-                    {c.companyName || c.fullName}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <ClientSearchSelect
+              label="Customer"
+              placeholder="Search and select customer"
+              clients={clients}
+              onSelect={(clientId) => {
+                const client = clients.find(c => c._id === clientId);
+                if (client) {
+                  setFormData(prev => ({ ...prev, customerName: client.companyName || client.fullName || '' }));
+                }
+              }}
+            />
             <div className="grid grid-cols-2 gap-2">
               <input type="text" name="consignmentNo" value={formData.consignmentNo} onChange={handleChange} className="p-1 border text-sm" placeholder="Consignment No" />
               <input type="text" name="customerName" value={formData.customerName} onChange={handleChange} className="p-1 border text-sm" placeholder="Customer Name" />
