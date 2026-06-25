@@ -1,13 +1,22 @@
 const mongoose = require('mongoose');
 const companyPlugin = require('../utils/companyPlugin');
 
+const normalizeVehicleNumber = (value) => {
+  if (value === undefined || value === null) {
+    return value;
+  }
+
+  return String(value).toUpperCase().replace(/[^A-Z0-9]/g, '').trim();
+};
+
 const vehicleSchema = new mongoose.Schema({
   // Basic Details
   vehicleNumber: {
     type: String,
     required: [true, 'Vehicle number is required'],
     uppercase: true,
-    trim: true
+    trim: true,
+    set: normalizeVehicleNumber
   },
   vehicleType: {
     type: String,
@@ -193,6 +202,13 @@ const vehicleSchema = new mongoose.Schema({
   timestamps: true
 });
 
+vehicleSchema.pre('validate', function(next) {
+  if (this.vehicleNumber) {
+    this.vehicleNumber = normalizeVehicleNumber(this.vehicleNumber);
+  }
+  next();
+});
+
 // Calculate loan details before saving
 vehicleSchema.pre('save', function(next) {
   if (this.hasLoan && this.loanDetails.loanAmount && this.loanDetails.emiAmount && this.loanDetails.loanStartDate) {
@@ -219,12 +235,14 @@ vehicleSchema.pre('save', function(next) {
   next();
 });
 
+vehicleSchema.statics.normalizeVehicleNumber = normalizeVehicleNumber;
+vehicleSchema.plugin(companyPlugin);
+
 // Indexes
 vehicleSchema.index({ vehicleNumber: 1, forCompany: 1 }, { unique: true });
 vehicleSchema.index({ currentStatus: 1 });
 vehicleSchema.index({ ownershipType: 1 });
 vehicleSchema.index({ fleetOwnerId: 1 });
 vehicleSchema.index({ isActive: 1 });
-vehicleSchema.plugin(companyPlugin);
 
 module.exports = mongoose.model('Vehicle', vehicleSchema);

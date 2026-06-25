@@ -1,5 +1,12 @@
 const Vehicle = require('../models/Vehicle');
 
+const DUPLICATE_VEHICLE_MESSAGE = 'Vehicle number already exists in this company';
+
+const duplicateVehicleResponse = (res) => res.status(400).json({
+  success: false,
+  message: DUPLICATE_VEHICLE_MESSAGE
+});
+
 /**
  * @desc    Get all vehicles
  * @route   GET /api/vehicles
@@ -83,22 +90,30 @@ exports.getVehicleById = async (req, res) => {
  */
 exports.createVehicle = async (req, res) => {
   try {
+    const vehicleNumber = Vehicle.normalizeVehicleNumber(req.body.vehicleNumber);
+
+    if (!vehicleNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vehicle number is required'
+      });
+    }
+
+    req.body.vehicleNumber = vehicleNumber;
+
     // Check if vehicle number already exists in active vehicles
     const existingVehicle = await Vehicle.findOne({ 
-      vehicleNumber: req.body.vehicleNumber.toUpperCase(),
+      vehicleNumber,
       isActive: true 
     });
 
     if (existingVehicle) {
-      return res.status(400).json({
-        success: false,
-        message: 'Vehicle number already exists'
-      });
+      return duplicateVehicleResponse(res);
     }
 
     // Check if there's an inactive vehicle with same number - reactivate it
     const inactiveVehicle = await Vehicle.findOne({ 
-      vehicleNumber: req.body.vehicleNumber.toUpperCase(),
+      vehicleNumber,
       isActive: false 
     });
 
@@ -126,10 +141,7 @@ exports.createVehicle = async (req, res) => {
   } catch (error) {
     // Handle duplicate vehicle number
     if (error.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        message: 'Vehicle number already exists'
-      });
+      return duplicateVehicleResponse(res);
     }
 
     res.status(500).json({
@@ -156,20 +168,34 @@ exports.updateVehicle = async (req, res) => {
       });
     }
 
+    let vehicleNumber;
+    if (req.body.vehicleNumber !== undefined) {
+      vehicleNumber = Vehicle.normalizeVehicleNumber(req.body.vehicleNumber);
+
+      if (!vehicleNumber) {
+        return res.status(400).json({
+          success: false,
+          message: 'Vehicle number is required'
+        });
+      }
+
+      req.body.vehicleNumber = vehicleNumber;
+    }
+
     // Check if vehicle number is being changed
-    if (req.body.vehicleNumber && req.body.vehicleNumber.toUpperCase() !== originalVehicle.vehicleNumber) {
+    if (
+      vehicleNumber &&
+      vehicleNumber !== Vehicle.normalizeVehicleNumber(originalVehicle.vehicleNumber)
+    ) {
       // Check if new vehicle number already exists in active vehicles
       const existingVehicle = await Vehicle.findOne({ 
-        vehicleNumber: req.body.vehicleNumber.toUpperCase(),
+        vehicleNumber,
         isActive: true,
         _id: { $ne: req.params.id }
       });
 
       if (existingVehicle) {
-        return res.status(400).json({
-          success: false,
-          message: 'Vehicle number already exists'
-        });
+        return duplicateVehicleResponse(res);
       }
     }
 
@@ -192,6 +218,10 @@ exports.updateVehicle = async (req, res) => {
       data: vehicle
     });
   } catch (error) {
+    if (error.code === 11000) {
+      return duplicateVehicleResponse(res);
+    }
+
     res.status(500).json({
       success: false,
       message: error.message

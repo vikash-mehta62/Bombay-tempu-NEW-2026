@@ -6,6 +6,10 @@ import { vehicleAPI, fleetOwnerAPI, driverAPI } from '@/lib/api';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
+const normalizeVehicleNumberInput = (value) => (
+  String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+);
+
 export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData = null }) {
   const [loading, setLoading] = useState(false);
   const [fleetOwners, setFleetOwners] = useState([]);
@@ -189,6 +193,8 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
       });
     } else if (type === 'checkbox') {
       setFormData({ ...formData, [name]: checked });
+    } else if (name === 'vehicleNumber') {
+      setFormData({ ...formData, [name]: normalizeVehicleNumberInput(value) });
     } else {
       setFormData({ ...formData, [name]: value });
     }
@@ -201,6 +207,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
     try {
       // Prepare data
       const submitData = { ...formData };
+      submitData.vehicleNumber = normalizeVehicleNumberInput(submitData.vehicleNumber);
       
       // Remove fleetOwnerId if self_owned
       if (submitData.ownershipType === 'self_owned') {
