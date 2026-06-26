@@ -10,6 +10,14 @@ const normalizeVehicleNumberInput = (value) => (
   String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
 );
 
+const getEmptyFleetOwner = () => ({
+  fullName: '',
+  companyName: '',
+  contact: '',
+  email: '',
+  address: ''
+});
+
 export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData = null }) {
   const [loading, setLoading] = useState(false);
   const [fleetOwners, setFleetOwners] = useState([]);
@@ -18,12 +26,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
   const [showAddFleetOwner, setShowAddFleetOwner] = useState(false);
   const [fleetOwnerSearch, setFleetOwnerSearch] = useState('');
   const [driverSearch, setDriverSearch] = useState('');
-  const [newFleetOwner, setNewFleetOwner] = useState({
-    fullName: '',
-    contact: '',
-    email: '',
-    address: ''
-  });
+  const [newFleetOwner, setNewFleetOwner] = useState(getEmptyFleetOwner);
 
   // Loan calculations
   const [loanCalculations, setLoanCalculations] = useState({
@@ -99,6 +102,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
           permitExpiryDate: formatDateForInput(editData.permitExpiryDate),
           nationalPermitExpiryDate: formatDateForInput(editData.nationalPermitExpiryDate),
           taxValidUptoDate: formatDateForInput(editData.taxValidUptoDate),
+          fleetOwnerId: editData.fleetOwnerId?._id || editData.fleetOwnerId || '',
           defaultDriverId: editData.defaultDriverId?._id || '',
           loanDetails: editData.loanDetails ? {
             ...editData.loanDetails,
@@ -127,9 +131,12 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
   const loadFleetOwners = async () => {
     try {
       const response = await fleetOwnerAPI.getAll();
-      setFleetOwners(response.data.data);
+      const owners = response.data.data || [];
+      setFleetOwners(owners);
+      return owners;
     } catch (error) {
       console.error('Error loading fleet owners:', error);
+      return [];
     }
   };
 
@@ -143,26 +150,40 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
   };
 
   const handleAddNewFleetOwner = async () => {
-    if (!newFleetOwner.fullName || !newFleetOwner.contact) {
+    const payload = {
+      ...newFleetOwner,
+      fullName: newFleetOwner.fullName.trim(),
+      companyName: newFleetOwner.companyName.trim(),
+      contact: newFleetOwner.contact.trim(),
+      email: newFleetOwner.email.trim(),
+      address: newFleetOwner.address.trim()
+    };
+
+    if (!payload.fullName || !payload.contact) {
       toast.error('Name and contact are required');
       return;
     }
 
     try {
-      const response = await fleetOwnerAPI.create(newFleetOwner);
+      const response = await fleetOwnerAPI.create(payload);
+      const createdOwner = response.data.data;
       toast.success('Fleet owner added successfully!');
       
       // Reload fleet owners
-      await loadFleetOwners();
+      const owners = await loadFleetOwners();
+      if (createdOwner?._id && !owners.some((owner) => owner._id === createdOwner._id)) {
+        setFleetOwners((prevOwners) => [createdOwner, ...prevOwners]);
+      }
       
       // Select the newly created fleet owner
-      setFormData({
-        ...formData,
+      setFormData((prevData) => ({
+        ...prevData,
         fleetOwnerId: response.data.data._id
-      });
+      }));
       
       // Reset and close add form
-      setNewFleetOwner({ fullName: '', contact: '', email: '', address: '' });
+      setNewFleetOwner(getEmptyFleetOwner());
+      setFleetOwnerSearch('');
       setShowAddFleetOwner(false);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to add fleet owner');
@@ -170,8 +191,9 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
   };
 
   const filteredFleetOwners = fleetOwners.filter(owner =>
-    owner.fullName.toLowerCase().includes(fleetOwnerSearch.toLowerCase()) ||
-    owner.contact.includes(fleetOwnerSearch)
+    owner.fullName?.toLowerCase().includes(fleetOwnerSearch.toLowerCase()) ||
+    owner.companyName?.toLowerCase().includes(fleetOwnerSearch.toLowerCase()) ||
+    owner.contact?.includes(fleetOwnerSearch)
   );
 
   const filteredDrivers = drivers.filter(driver =>
@@ -340,7 +362,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
     setShowAddFleetOwner(false);
     setFleetOwnerSearch('');
     setDriverSearch('');
-    setNewFleetOwner({ fullName: '', contact: '', email: '', address: '' });
+    setNewFleetOwner(getEmptyFleetOwner());
   };
 
   const formatCurrency = (amount) => {
@@ -589,7 +611,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
                     <div className="mb-2">
                       <input
                         type="text"
-                        placeholder="Search fleet owner by name or contact..."
+                        placeholder="Search fleet owner by name, company, or contact..."
                         value={fleetOwnerSearch}
                         onChange={(e) => setFleetOwnerSearch(e.target.value)}
                         className="input"
@@ -607,7 +629,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
                       <option value="">Select Fleet Owner</option>
                       {filteredFleetOwners.map((owner) => (
                         <option key={owner._id} value={owner._id}>
-                          {owner.fullName} - {owner.contact}
+                          {[owner.fullName, owner.companyName, owner.contact].filter(Boolean).join(' - ')}
                         </option>
                       ))}
                     </select>
@@ -650,6 +672,17 @@ export default function VehicleFormModal({ isOpen, onClose, onSuccess, editData 
                               onChange={(e) => setNewFleetOwner({...newFleetOwner, contact: e.target.value})}
                               className="input"
                               placeholder="Enter contact number"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="label text-sm">Company Name</label>
+                            <input
+                              type="text"
+                              value={newFleetOwner.companyName}
+                              onChange={(e) => setNewFleetOwner({...newFleetOwner, companyName: e.target.value})}
+                              className="input"
+                              placeholder="Enter company name"
                             />
                           </div>
 

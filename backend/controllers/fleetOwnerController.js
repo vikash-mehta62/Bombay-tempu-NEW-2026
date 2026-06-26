@@ -79,24 +79,44 @@ exports.getFleetOwnerById = async (req, res) => {
  */
 exports.createFleetOwner = async (req, res) => {
   try {
-    const { fullName, contact, username } = req.body;
+    if (req.body.fullName) {
+      req.body.fullName = String(req.body.fullName).trim();
+    }
+
+    if (req.body.contact) {
+      req.body.contact = String(req.body.contact).trim();
+    }
+
+    if (req.body.username) {
+      req.body.username = String(req.body.username).trim().toLowerCase();
+    }
+
+    const { contact, username } = req.body;
+    const forCompany = req.company || req.body.forCompany || 'buts';
+
+    if (!req.body.fullName || !contact) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name and contact are required'
+      });
+    }
 
     // Check if contact already exists
-    const existingOwner = await FleetOwner.findOne({ contact });
+    const existingOwner = await FleetOwner.findOne({ contact, forCompany });
     if (existingOwner) {
       return res.status(400).json({
         success: false,
-        message: 'Fleet owner with this contact already exists'
+        message: 'Fleet owner with this contact already exists in this company'
       });
     }
 
     // If username provided, check if it exists
     if (username) {
-      const existingUsername = await FleetOwner.findOne({ username });
+      const existingUsername = await FleetOwner.findOne({ username, forCompany });
       if (existingUsername) {
         return res.status(400).json({
           success: false,
-          message: 'Username already taken'
+          message: 'Username already taken in this company'
         });
       }
     }
@@ -140,6 +160,46 @@ exports.updateFleetOwner = async (req, res) => {
 
     // Store original data for logging
     req.originalData = fleetOwner.toObject();
+
+    if (req.body.contact) {
+      req.body.contact = String(req.body.contact).trim();
+    }
+
+    if (req.body.username) {
+      req.body.username = String(req.body.username).trim().toLowerCase();
+    }
+
+    const forCompany = req.company || req.body.forCompany || fleetOwner.forCompany || 'buts';
+
+    if (req.body.contact) {
+      const existingOwner = await FleetOwner.findOne({
+        contact: req.body.contact,
+        forCompany,
+        _id: { $ne: req.params.id }
+      });
+
+      if (existingOwner) {
+        return res.status(400).json({
+          success: false,
+          message: 'Fleet owner with this contact already exists in this company'
+        });
+      }
+    }
+
+    if (req.body.username) {
+      const existingUsername = await FleetOwner.findOne({
+        username: req.body.username,
+        forCompany,
+        _id: { $ne: req.params.id }
+      });
+
+      if (existingUsername) {
+        return res.status(400).json({
+          success: false,
+          message: 'Username already taken in this company'
+        });
+      }
+    }
 
     const updatedOwner = await FleetOwner.findByIdAndUpdate(
       req.params.id,
