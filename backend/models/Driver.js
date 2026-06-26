@@ -111,7 +111,10 @@ driverSchema.methods.comparePassword = async function(candidatePassword) {
 
 // Indexes
 driverSchema.index({ contact: 1, forCompany: 1 }, { unique: true });
-driverSchema.index({ licenseNumber: 1, forCompany: 1 }, { unique: true, sparse: true });
+driverSchema.index(
+  { licenseNumber: 1, forCompany: 1 },
+  { unique: true, partialFilterExpression: { licenseNumber: { $type: "string" } } }
+);
 driverSchema.index({ status: 1 });
 driverSchema.index({ isActive: 1 });
 driverSchema.plugin(companyPlugin);

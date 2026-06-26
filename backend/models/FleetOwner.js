@@ -111,7 +111,10 @@ fleetOwnerSchema.methods.comparePassword = async function(candidatePassword) {
 
 // Indexes
 fleetOwnerSchema.index({ contact: 1, forCompany: 1 });
-fleetOwnerSchema.index({ username: 1, forCompany: 1 }, { unique: true, sparse: true });
+fleetOwnerSchema.index(
+  { username: 1, forCompany: 1 },
+  { unique: true, partialFilterExpression: { username: { $type: "string" } } }
+);
 fleetOwnerSchema.index({ isActive: 1 });
 fleetOwnerSchema.plugin(companyPlugin);
 
